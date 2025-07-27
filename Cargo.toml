@@ -1,0 +1,8 @@
+[package]
+name = "orbital"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.12"
+raylib = {version = "5.5.1", features = ["custom_frame_control"]}
