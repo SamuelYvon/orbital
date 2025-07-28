@@ -3,7 +3,7 @@ mod camera;
 mod physics;
 
 use crate::body::Body;
-use crate::camera::{ScaleInfo, camera_fixed};
+use crate::camera::{draw};
 use crate::physics::Kinematics;
 use crate::physics::euler::Euler;
 use raylib::prelude::*;
@@ -32,7 +32,7 @@ fn main() {
         // Sun
         Body::new(
             SUN_MASS,
-            (750., 750.),
+            (0., 0.),
             20.,
             Color::YELLOW,
             (0.0, 0.0),
@@ -42,7 +42,7 @@ fn main() {
         // Mars
         Body::new(
             MARS_MASS,
-            (750., 750. + SUN_MARS_DISTANCE),
+            (0., 0. + SUN_MARS_DISTANCE),
             8.,
             Color::RED,
             (MARS_VELOCITY, 0.),
@@ -52,7 +52,7 @@ fn main() {
         // Earth
         Body::new(
             EARTH_MASS,
-            (750., 750. + SUN_EARTH_DISTANCE),
+            (0., 0. + SUN_EARTH_DISTANCE),
             10.,
             Color::BLUE,
             (29780.0, 0.0),
@@ -62,7 +62,7 @@ fn main() {
         // Moon
         Body::new(
             MOON_MASS,
-            (750., 750. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
+            (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
             3.0,
             Color::GRAY,
             (1023. + 29780., 0.),
@@ -71,10 +71,8 @@ fn main() {
         ),
     ];
 
-    let scale_info = ScaleInfo {
-        scale: (1. / (SUN_EARTH_DISTANCE)) * 200.,
-        center: (750., 750.),
-    };
+    let scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
+    // let scale = (1. / (EARTH_MOON_DISTANCE)) * 200.;
 
     let mut kin = Euler;
 
@@ -82,7 +80,7 @@ fn main() {
         let mut draw_handle = rl.begin_drawing(&thread);
         draw_handle.clear_background(Color::BLACK);
 
-        camera_fixed(bodies.as_ref(), &mut draw_handle, &scale_info);
+        draw(&mut draw_handle, &bodies, bodies[2].pos() , scale);
 
         kin.draw(&mut draw_handle);
         kin.step(&mut bodies, 1800. * 24.);
