@@ -5,7 +5,7 @@ use raylib::drawing::RaylibDrawHandle;
 pub struct Euler;
 
 impl Kinematics for Euler {
-    fn step(&mut self, bodies: &mut [Body], dt: f32) {
+    fn step(&self, bodies: &mut [Body], dt: f32) {
         // Rn+1 = Rn + Vn*dt
         // Vn+1 = Vn + An*dt
         update_acceleration(bodies);
@@ -15,15 +15,19 @@ impl Kinematics for Euler {
                 continue;
             }
 
+            let (rx, ry) = body.pos();
+
             body.velocity.0 += body.accel.0 * dt;
             body.velocity.1 += body.accel.1 * dt;
 
-            let pos = body.pos();
+            let rx_1 = rx + body.velocity.0 * dt;
+            let ry_1 = ry + body.velocity.1 * dt;
 
-            let x = pos.0 + body.velocity.0 * dt;
-            let y = pos.1 + body.velocity.1 * dt;
-
-            body.set_pos((x, y));
+            body.set_pos((rx_1, ry_1));
         }
+    }
+
+    fn name(&self) -> &'static str {
+        "Euler"
     }
 }

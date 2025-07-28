@@ -6,6 +6,7 @@ use crate::body::Body;
 use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
 use crate::physics::euler::Euler;
+use crate::physics::leapfrog::{Leapfrog, LeapfrogKDK};
 use raylib::prelude::*;
 
 const SPACE_SIZE: usize = 1500;
@@ -14,13 +15,16 @@ const EARTH_MASS: f32 = 5.972 * 1E24;
 const MOON_MASS: f32 = 7.32 * 1E22;
 const SUN_MASS: f32 = 1.989 * 1E30;
 const MARS_MASS: f32 = 6.39 * 1E23;
+const HALEYS_COMET_MASS: f32 = 2.2 * 1E14;
 const MARS_VELOCITY: f32 = 24.077 * 1000.0; // m/s
-const EARTH_SUN_VELOCITY: f32 = 29780.;
+const EARTH_SUN_VELOCITY: f32 = 29_784.8;
 const MOON_EARTH_VELOCITY: f32 = 1023.;
+const HALEYS_COMET_VELOCITY : f32 = 54.6 * 1000.;
 
 const SUN_MARS_DISTANCE: f32 = 243230000000.;
 const SUN_EARTH_DISTANCE: f32 = 149597870700.;
 const EARTH_MOON_DISTANCE: f32 = 384400000.;
+const SUN_HALEY_DISTANCE : f32 = 87_831_000. * 1000.;
 
 enum CameraPosition {
     UniverseAbsolute((f32, f32)),
@@ -76,12 +80,26 @@ fn main() {
             (0., 0.),
             false,
         ),
+        // Haley's comet
+        Body::new(
+            HALEYS_COMET_MASS,
+            (0. + SUN_HALEY_DISTANCE, 0.),
+            3.0,
+            Color::ORANGERED,
+            (0., HALEYS_COMET_VELOCITY),
+            (0.0, 0.0),
+            false
+        ),
     ];
 
     let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
-    let mut camera_position = CameraPosition::BodyRelative(2);
+    let mut camera_position = CameraPosition::BodyRelative(0);
 
-    let mut kin = Euler;
+    let mut kinematics_index: usize = 0;
+    let kinematics: [Box<dyn Kinematics>; 3] =
+        [Box::new(Leapfrog), Box::new(LeapfrogKDK), Box::new(Euler)];
+
+    let mut kin = &kinematics[kinematics_index];
 
     macro_rules! get_universe_center {
         () => {{
@@ -131,30 +149,22 @@ fn main() {
             }
         }
 
+        // Swap kinematics based on keybind
+        match rl.get_key_pressed() {
+            Some(KeyboardKey::KEY_K) => {
+                kinematics_index = (kinematics_index + 1) % kinematics.len();
+                kin = &kinematics[kinematics_index];
+            }
+            _ => (),
+        };
+
         let mut draw_handle = rl.begin_drawing(&thread);
         draw_handle.clear_background(Color::BLACK);
         draw_universe_relative(&mut draw_handle, &bodies, get_universe_center!(), scale);
 
+        // dt in secs
         kin.step(&mut bodies, 1800. * 24.);
-        // kin.step(&mut bodies, 60.0 * 10.);
 
-        // for (i, body) in bodies.iter().enumerate() {
-        //     println!("======================================");
-        //     println!(
-        //         "Body {i}: {0:.3}10^22 kg, R_x:{1:.3} R_y:{2:.3}",
-        //         body.mass / 10E22,
-        //         body.pos.0,
-        //         body.pos.1
-        //     );
-        //     println!(
-        //         "                       V_x:{0:.3} V_y:{1:.3}",
-        //         body.velocity.0, body.velocity.1
-        //     );
-        //     println!(
-        //         "                       A_x:{0:.3} A_y:{1:.3}",
-        //         body.accel.0, body.accel.1
-        //     );
-        // }
-        // println!()
+        draw_handle.draw_text(kin.name(), 14, SPACE_SIZE as i32 - 14 * 2, 14, Color::WHITE);
     }
 }

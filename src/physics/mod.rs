@@ -1,4 +1,5 @@
 pub mod euler;
+pub mod leapfrog;
 
 use crate::body::Body;
 
@@ -9,7 +10,9 @@ pub const G: f32 = 6.6674 * 1E-11;
 /// bodies.
 pub trait Kinematics {
     /// Compute a time step
-    fn step(&mut self, bodies: &mut [Body], secs: f32);
+    fn step(&self, bodies: &mut [Body], dt: f32);
+    
+    fn name(&self) -> &'static str;
 }
 
 /// Compute the euclidian distance between two bodies. Returns
@@ -27,9 +30,14 @@ pub fn distance(body1: &Body, body2: &Body) -> (f32, f32) {
 }
 
 /// Update the acceleration of each bodies relative to one another.
-pub fn update_acceleration(bodies: &mut [Body]) {
+/// This is an expensive operation, because the acceleration of a body
+/// depends on **all the other bodies**. This means the performance is
+/// expected to be within `O(n^2)`
+pub fn update_acceleration(bodies: &mut [Body]) -> Vec<(f32, f32)> {
+    let mut accelerations = Vec::with_capacity(bodies.len());
     for i in 0..bodies.len() {
         if bodies[i].fixed {
+            accelerations.push((0., 0.));
             continue;
         }
 
@@ -47,18 +55,22 @@ pub fn update_acceleration(bodies: &mut [Body]) {
             let pos_i = bi.pos();
             let pos_j = bj.pos();
 
-            let (distance_pow, distance) = distance(bi, bj);
+            let (d2, d) = distance(bi, bj);
+            let d3 = d * d2;
 
             let mj = bj.mass;
 
-            let grav = (-G * mj) / distance_pow;
+            let body_grav_constant = (-G * mj);
 
-            x_acc += grav * ((pos_i.0 - pos_j.0) / distance);
-            y_acc += grav * ((pos_i.1 - pos_j.1) / distance);
+            x_acc += (body_grav_constant * (pos_i.0 - pos_j.0)) / d3;
+            y_acc += (body_grav_constant * (pos_i.1 - pos_j.1)) / d3;
         }
 
         bodies[i].accel = (x_acc, y_acc);
+        accelerations.push(bodies[i].accel);
     }
+
+    accelerations
 }
 
 /// Given an angle in radians, a radius (a distance in meters), computes the position of the second
