@@ -3,7 +3,7 @@ mod camera;
 mod physics;
 
 use crate::body::Body;
-use crate::camera::{draw};
+use crate::camera::draw;
 use crate::physics::Kinematics;
 use crate::physics::euler::Euler;
 use raylib::prelude::*;
@@ -71,16 +71,25 @@ fn main() {
         ),
     ];
 
-    let scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
+    let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
     // let scale = (1. / (EARTH_MOON_DISTANCE)) * 200.;
 
     let mut kin = Euler;
 
     while !rl.window_should_close() {
+        // Handle mouse zoom
+        let mouse_wheel = rl.get_mouse_wheel_move();
+
+        if mouse_wheel > 0. {
+            scale *= mouse_wheel * 1.1;
+        } else if mouse_wheel < 0. {
+            scale /= mouse_wheel.abs() * 1.1;
+        }
+
         let mut draw_handle = rl.begin_drawing(&thread);
         draw_handle.clear_background(Color::BLACK);
 
-        draw(&mut draw_handle, &bodies, bodies[2].pos() , scale);
+        draw(&mut draw_handle, &bodies, bodies[2].pos(), scale);
 
         kin.draw(&mut draw_handle);
         kin.step(&mut bodies, 1800. * 24.);

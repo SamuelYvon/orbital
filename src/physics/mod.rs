@@ -85,11 +85,11 @@ pub struct OrbitParameters {
     pub theta: f32,
 }
 
-/// Configure an orbit between two bodies. 
-/// 
-/// Warning: 
+/// Configure an orbit between two bodies.
+///
+/// Warning:
 /// Overwrites the position of the bodies, as well as their velocities.
-/// This means you should set the mass of the bodies and place them both 
+/// This means you should set the mass of the bodies and place them both
 /// anywhere, then configure the orbit.
 pub fn kepler_orbit(orb: OrbitParameters, body1: &mut Body, body2: &mut Body) {
     let mu = G * (body1.mass + body2.mass);

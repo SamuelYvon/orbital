@@ -27,7 +27,5 @@ impl Kinematics for Euler {
         }
     }
 
-    fn draw(&self, drawing_handle: &mut RaylibDrawHandle) {
-        
-    }
+    fn draw(&self, drawing_handle: &mut RaylibDrawHandle) {}
 }
