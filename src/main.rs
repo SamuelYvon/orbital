@@ -3,7 +3,7 @@ mod camera;
 mod physics;
 
 use crate::body::Body;
-use crate::camera::draw;
+use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
 use crate::physics::euler::Euler;
 use raylib::prelude::*;
@@ -15,10 +15,17 @@ const MOON_MASS: f32 = 7.32 * 1E22;
 const SUN_MASS: f32 = 1.989 * 1E30;
 const MARS_MASS: f32 = 6.39 * 1E23;
 const MARS_VELOCITY: f32 = 24.077 * 1000.0; // m/s
+const EARTH_SUN_VELOCITY: f32 = 29780.;
+const MOON_EARTH_VELOCITY: f32 = 1023.;
 
 const SUN_MARS_DISTANCE: f32 = 243230000000.;
 const SUN_EARTH_DISTANCE: f32 = 149597870700.;
 const EARTH_MOON_DISTANCE: f32 = 384400000.;
+
+enum CameraPosition {
+    UniverseAbsolute((f32, f32)),
+    BodyRelative(usize),
+}
 
 fn main() {
     let (mut rl, thread) = init()
@@ -55,7 +62,7 @@ fn main() {
             (0., 0. + SUN_EARTH_DISTANCE),
             10.,
             Color::BLUE,
-            (29780.0, 0.0),
+            (EARTH_SUN_VELOCITY, 0.0),
             (0.0, 0.0),
             false,
         ),
@@ -65,16 +72,25 @@ fn main() {
             (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
             3.0,
             Color::GRAY,
-            (1023. + 29780., 0.),
+            (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
             (0., 0.),
             false,
         ),
     ];
 
     let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
-    // let scale = (1. / (EARTH_MOON_DISTANCE)) * 200.;
+    let mut camera_position = CameraPosition::BodyRelative(2);
 
     let mut kin = Euler;
+
+    macro_rules! get_universe_center {
+        () => {{
+            match camera_position {
+                CameraPosition::UniverseAbsolute(pos) => pos,
+                CameraPosition::BodyRelative(body) => bodies[body].pos(),
+            }
+        }};
+    }
 
     while !rl.window_should_close() {
         // Handle mouse zoom
@@ -86,12 +102,39 @@ fn main() {
             scale /= mouse_wheel.abs() * 1.1;
         }
 
+        // Center to the selection position
+        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+            // TODO: check if we clicked on a body, for now just center on click
+
+            let screen_position = (rl.get_mouse_x(), rl.get_mouse_y());
+            let universe_center = get_universe_center!();
+            let screen_center = (SPACE_SIZE / 2) as i32;
+
+            let mut set = false;
+            for (i, body) in bodies.iter().enumerate() {
+                if click_in_body(screen_position, universe_center, screen_center, scale, body) {
+                    camera_position = CameraPosition::BodyRelative(i);
+                    set = true;
+                    break;
+                }
+            }
+
+            if !set {
+                let universe_center = screen_coords_to_universe(
+                    screen_position,
+                    scale,
+                    universe_center,
+                    screen_center,
+                );
+
+                camera_position = CameraPosition::UniverseAbsolute(universe_center);
+            }
+        }
+
         let mut draw_handle = rl.begin_drawing(&thread);
         draw_handle.clear_background(Color::BLACK);
+        draw_universe_relative(&mut draw_handle, &bodies, get_universe_center!(), scale);
 
-        draw(&mut draw_handle, &bodies, bodies[2].pos(), scale);
-
-        kin.draw(&mut draw_handle);
         kin.step(&mut bodies, 1800. * 24.);
         // kin.step(&mut bodies, 60.0 * 10.);
 

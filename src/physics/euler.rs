@@ -26,6 +26,4 @@ impl Kinematics for Euler {
             body.set_pos((x, y));
         }
     }
-
-    fn draw(&self, drawing_handle: &mut RaylibDrawHandle) {}
 }

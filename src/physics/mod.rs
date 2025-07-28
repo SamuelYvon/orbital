@@ -1,7 +1,6 @@
 pub mod euler;
 
 use crate::body::Body;
-use raylib::drawing::RaylibDrawHandle;
 
 /// Gravity constant
 pub const G: f32 = 6.6674 * 1E-11;
@@ -11,10 +10,6 @@ pub const G: f32 = 6.6674 * 1E-11;
 pub trait Kinematics {
     /// Compute a time step
     fn step(&mut self, bodies: &mut [Body], secs: f32);
-
-    /// Hook to draw information about the kinematics. Can be used to draw paths of
-    /// objects.
-    fn draw(&self, drawing_handle: &mut RaylibDrawHandle);
 }
 
 /// Compute the euclidian distance between two bodies. Returns
