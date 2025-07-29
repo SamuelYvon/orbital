@@ -8,3 +8,4 @@ rand = "0.9.2"
 kdtree = "0.7.0"
 raylib = {version = "5.5.1", features = ["custom_frame_control"]}
 ringbuffer = "0.16.0"
+rayon = "1.10.0"

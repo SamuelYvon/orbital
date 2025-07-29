@@ -5,20 +5,20 @@ use ringbuffer::{AllocRingBuffer, RingBuffer};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-const ASTEROID_HIGH_SEMI_MAJOR_AXIS: f32 = 3.3;
+const ASTEROID_HIGH_SEMI_MAJOR_AXIS: f64 = 3.3;
 
-const ASTEROID_LOW_SEMI_MAJOR_AXIS: f32 = 2.1;
+const ASTEROID_LOW_SEMI_MAJOR_AXIS: f64 = 2.1;
 
 const MAXIMUM_POSITION_HISTORY: usize = 1000;
 
 /// Largest asteroid mass in Kg
-const ASTEROID_MASS_HIGH: f32 = 1E18;
+const ASTEROID_MASS_HIGH: f64 = 1E18;
 
 /// Smallest asteroid mass in Kg
-const ASTEROID_MASS_LOW: f32 = 1E5;
+const ASTEROID_MASS_LOW: f64 = 1E5;
 
-const ASTEROID_RADIUS_HIGH: f32 = 500_000.;
-const ASTEROID_RADIUS_LOW: f32 = 5.;
+const ASTEROID_RADIUS_HIGH: f64 = 500_000.;
+const ASTEROID_RADIUS_LOW: f64 = 5.;
 
 pub type BodyId = usize;
 
@@ -82,36 +82,36 @@ pub struct Body {
     /// The unique Id of the body, used for tracking it.
     id: BodyId,
     /// Mass of the body in KG
-    pub mass: f32,
+    pub mass: f64,
     /// Center position of the space body
-    pos: (f32, f32),
+    pos: (f64, f64),
     /// The physical radius of the body, to use in collision detection
-    pub physical_radius: f32,
+    pub physical_radius: f64,
     /// Radius in pixels of the body
-    pub draw_radius: f32,
+    pub draw_radius: f64,
     /// Color to use for the body
     pub color: Color,
     /// Velocity in m/s
-    pub velocity: (f32, f32),
+    pub velocity: (f64, f64),
     /// Acceleration in m/s^2
-    pub accel: (f32, f32),
+    pub accel: (f64, f64),
     /// If the body is fixed (won't be updated)
     pub fixed: bool,
     /// Drawing parameters
     pub trail_parameter: TrailParameter,
     /// The list of position of this body
-    pub pos_list: AllocRingBuffer<(f32, f32)>,
+    pub pos_list: AllocRingBuffer<(f64, f64)>,
 }
 
 impl Body {
     pub fn new(
-        mass: f32,
-        pos: (f32, f32),
-        physical_radius: f32,
-        draw_radius: f32,
+        mass: f64,
+        pos: (f64, f64),
+        physical_radius: f64,
+        draw_radius: f64,
         color: Color,
-        velocity: (f32, f32),
-        accel: (f32, f32),
+        velocity: (f64, f64),
+        accel: (f64, f64),
         fixed: bool,
     ) -> Self {
         Self {
@@ -133,15 +133,15 @@ impl Body {
         self.id
     }
 
-    pub fn pos(&self) -> (f32, f32) {
+    pub fn pos(&self) -> (f64, f64) {
         self.pos
     }
 
-    pub fn pos_arr(&self) -> [f32; 2] {
+    pub fn pos_arr(&self) -> [f64; 2] {
         [self.pos.0, self.pos.1]
     }
 
-    pub fn set_pos(&mut self, pos: (f32, f32)) {
+    pub fn set_pos(&mut self, pos: (f64, f64)) {
         self.pos_list.enqueue(pos);
         self.pos = pos
     }
@@ -152,22 +152,22 @@ impl Body {
 pub fn create_asteroid_belt(
     reference_body: &Body,
     asteroids: usize,
-    average_distance: f32,
+    average_distance: f64,
 ) -> Vec<Body> {
     let mut ret = Vec::with_capacity(asteroids);
     let mut rng = rand::rng();
 
     macro_rules! rnd_rng {
         ($low:expr, $high:expr) => {
-            (rng.random::<f32>() * ($high - $low)) + $low
+            (rng.random::<f64>() * ($high - $low)) + $low
         };
     }
 
     for _ in 0..asteroids {
         let a = rnd_rng!(ASTEROID_LOW_SEMI_MAJOR_AXIS, ASTEROID_HIGH_SEMI_MAJOR_AXIS)
             * average_distance;
-        let theta = rng.random::<f32>() * 2.0 * std::f32::consts::PI;
-        let e = rng.random::<f32>() * 0.15;
+        let theta = rng.random::<f64>() * 2.0 * std::f64::consts::PI;
+        let e = rng.random::<f64>() * 0.15;
 
         let mass = rnd_rng!(ASTEROID_MASS_LOW, ASTEROID_MASS_HIGH);
         let physical_radius = rnd_rng!(ASTEROID_RADIUS_LOW, ASTEROID_RADIUS_HIGH);

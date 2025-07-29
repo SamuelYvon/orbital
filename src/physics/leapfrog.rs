@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub struct Leapfrog;
 
 impl Kinematics for Leapfrog {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f32) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
         let acceleration = bodies
             .iter()
             .map(|body| (body.id(), body.accel))
@@ -52,7 +52,7 @@ impl Kinematics for Leapfrog {
 pub struct LeapfrogKDK;
 
 impl Kinematics for LeapfrogKDK {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f32) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
         // kick-drift-kick format
         let acceleration = bodies.iter().map(|body| body.accel).collect::<Vec<_>>();
 

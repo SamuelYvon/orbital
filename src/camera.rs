@@ -6,9 +6,9 @@ use ringbuffer::RingBuffer;
 /// Converts coordinates from the universe into coordinates to the screen
 #[inline]
 pub fn universe_coord_to_screen(
-    universe_coords: (f32, f32),
-    scale: f32,
-    universe_center: (f32, f32),
+    universe_coords: (f64, f64),
+    scale: f64,
+    universe_center: (f64, f64),
     screen_center: i32,
 ) -> (i32, i32) {
     let (x, y) = universe_coords;
@@ -16,8 +16,8 @@ pub fn universe_coord_to_screen(
     let (dx, dy) = (x - ux, y - uy);
     let (scaled_x, scaled_y) = (dx * scale, dy * scale);
     let (screen_x, screen_y) = (
-        scaled_x + screen_center as f32,
-        scaled_y + screen_center as f32,
+        scaled_x + screen_center as f64,
+        scaled_y + screen_center as f64,
     );
 
     (screen_x as i32, screen_y as i32)
@@ -27,13 +27,13 @@ pub fn universe_coord_to_screen(
 #[inline]
 pub fn screen_coords_to_universe(
     screen_coords: (i32, i32),
-    scale: f32,
-    universe_center: (f32, f32),
+    scale: f64,
+    universe_center: (f64, f64),
     screen_center: i32,
-) -> (f32, f32) {
+) -> (f64, f64) {
     let (x, y) = screen_coords;
     let (dx, dy) = (x - screen_center, y - screen_center);
-    let (scaled_dx, scaled_dy) = (dx as f32 / scale, dy as f32 / scale);
+    let (scaled_dx, scaled_dy) = (dx as f64 / scale, dy as f64 / scale);
 
     let (ux, uy) = universe_center;
 
@@ -42,9 +42,9 @@ pub fn screen_coords_to_universe(
 
 fn draw_body_lines(
     handle: &mut RaylibDrawHandle,
-    body_lines: &[(f32, f32)],
-    universe_center: (f32, f32),
-    scale: f32,
+    body_lines: &[(f64, f64)],
+    universe_center: (f64, f64),
+    scale: f64,
 ) {
     let boundary = handle.get_screen_height();
     let screen_center = boundary / 2;
@@ -61,8 +61,8 @@ fn draw_body_lines(
 pub fn draw_universe_relative(
     handle: &mut RaylibDrawHandle,
     bodies: &OrbitalBodies,
-    universe_center: (f32, f32),
-    scale: f32,
+    universe_center: (f64, f64),
+    scale: f64,
 ) {
     let boundary = handle.get_screen_height();
     let screen_center = boundary / 2;
@@ -86,15 +86,15 @@ pub fn draw_universe_relative(
             continue;
         }
 
-        handle.draw_circle(screen_x, screen_y, body.draw_radius, body.color);
+        handle.draw_circle(screen_x, screen_y, body.draw_radius as f32, body.color);
     }
 }
 
 pub fn click_in_body(
     screen_pos: (i32, i32),
-    universe_center: (f32, f32),
+    universe_center: (f64, f64),
     screen_center: i32,
-    scale: f32,
+    scale: f64,
     body: &Body,
 ) -> bool {
     // TODO: this will take into account the scaling, but the drawing of the radius does not.

@@ -1,13 +1,19 @@
+use crate::AU;
 use crate::body::{Body, BodyId, OrbitalBodies};
 use crate::physics::distance;
 use kdtree::distance::squared_euclidean;
+use rayon::prelude::*;
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::RwLock;
 use std::time::Instant;
 
 enum CollisionResult {
     Merge {
         body_id: BodyId,
-        new_mass: f32,
-        new_velocity: (f32, f32),
+        new_mass: f64,
+        new_velocity: (f64, f64),
     },
     Destroyed {
         body_id: BodyId,
@@ -52,6 +58,7 @@ fn append_collision(body1: &Body, body2: &Body, collisions: &mut Vec<CollisionRe
 }
 
 /// Check all pairs of bodies and returns the list of results
+#[allow(unused)]
 fn compute_pairwise_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
     let mut collisions = vec![];
     let bodies = orbital_bodies.iter().collect::<Vec<_>>();
@@ -69,29 +76,94 @@ fn compute_pairwise_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionR
     collisions
 }
 
-fn compute_kdtree_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
-    let mut collisions = vec![];
-    let mut kd = kdtree::KdTree::new(2);
+/// Bins of fixed width
+fn bin_bodies(orbital_bodies: &OrbitalBodies) -> Vec<HashSet<BodyId>> {
+    let max_distance = (AU * 10.).sqrt();
+    let bin_width = AU / 2.;
+
+    let width = orbital_bodies
+        .iter()
+        .filter(|body| {
+            let (x, y) = body.pos();
+            (x.powf(2.) + y.powf(2.)) < max_distance
+        })
+        .map(|body| body.pos())
+        .map(|(x, y)| {
+            let xabs = x.abs();
+            let yabs = y.abs();
+            xabs.max(yabs)
+        })
+        .max_by(|a, b| {
+            if a >= b {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
+        })
+        .unwrap();
+
+    let bin_count = (width / bin_width) as usize;
+    let mut bins = Vec::<HashSet<BodyId>>::with_capacity(bin_count * bin_count);
 
     for body in orbital_bodies.iter() {
-        kd.add(body.pos_arr(), body).unwrap();
+        let (x, y) = body.pos();
+        let offset = width / 2.;
+
+        let (x, y) = (x + offset, y + offset);
+        assert!(
+            x >= 0. && y >= 0.,
+            "Offset coordinates should always be in a positive area"
+        );
+
+        let bx = (x / bin_width) as usize;
+        let by = (y / bin_width) as usize;
+
+        let index = bx + by * bin_count;
+        bins[index].insert(body.id());
     }
 
-    for body in orbital_bodies.iter() {
-        let neigh = kd
-            .nearest(&body.pos_arr(), 100, &squared_euclidean)
-            .unwrap();
+    bins
+}
 
-        for (_, other) in neigh.into_iter() {
-            if body.id() == other.id() {
-                continue;
-            }
+fn compute_kdtree_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
+    let collisions = Arc::new(RwLock::new(vec![]));
+    let kd = Arc::new(RwLock::new(kdtree::KdTree::new(2)));
 
-            append_collision(body, other, &mut collisions);
+    {
+        let mut kd = kd.write().unwrap();
+        for body in orbital_bodies.iter() {
+            kd.add(body.pos_arr(), body).unwrap();
         }
     }
 
-    collisions
+    let bodies = orbital_bodies.iter().collect::<Vec<_>>();
+
+    bodies.par_iter().for_each({
+        let kd = kd.clone();
+        let collisions = collisions.clone();
+
+        move |body| {
+            let kd = kd.read().unwrap();
+
+            let neigh = kd
+                .nearest(&body.pos_arr(), 100, &squared_euclidean)
+                .unwrap();
+
+            neigh.par_iter().for_each({
+                let collisions = collisions.clone();
+                move |(_, other)| {
+                    if body.id() == other.id() {
+                        return;
+                    }
+
+                    let mut collisions = collisions.write().unwrap();
+                    append_collision(body, other, &mut collisions);
+                }
+            });
+        }
+    });
+
+    vec![]
 }
 
 /// Handle the collisions for the orbital system

@@ -6,13 +6,13 @@ use crate::body::{Body, BodyId, OrbitalBodies};
 use std::collections::HashMap;
 
 /// Gravity constant
-pub const G: f32 = 6.6674 * 1E-11;
+pub const G: f64 = 6.6674 * 1E-11;
 
 /// Implementations of the maths to compute the new position of a list of
 /// bodies.
 pub trait Kinematics {
     /// Compute a time step
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f32);
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64);
 
     fn name(&self) -> &'static str;
 }
@@ -20,7 +20,7 @@ pub trait Kinematics {
 /// Compute the euclidian distance between two bodies. Returns
 /// two values, (d^2, d) where d is the euclidian distance.
 #[inline]
-pub fn distance(body1: &Body, body2: &Body) -> (f32, f32) {
+pub fn distance(body1: &Body, body2: &Body) -> (f64, f64) {
     let pos_1 = body1.pos();
     let pos_2 = body2.pos();
 
@@ -31,7 +31,7 @@ pub fn distance(body1: &Body, body2: &Body) -> (f32, f32) {
     (sum, sum.sqrt())
 }
 
-fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f32, f32) {
+fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f64, f64) {
     let bi = pullee;
     let bj = pulling;
 
@@ -57,7 +57,7 @@ fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f32, f32) {
 /// expected to be within `O(n^2)`.
 ///
 /// This function takes into account the tier of each body.
-pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, f32)> {
+pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f64, f64)> {
     let mut accelerations = HashMap::new();
 
     // Pullee are tier 0, only pulled by tier0
@@ -109,7 +109,7 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, 
 
 /// Given an angle in radians, a radius (a distance in meters), computes the position of the second
 /// body relative to the one at [pos], assuming it is on a circle around the first body.
-pub fn orient(theta: f32, radius: f32, pos: (f32, f32)) -> (f32, f32) {
+pub fn orient(theta: f64, radius: f64, pos: (f64, f64)) -> (f64, f64) {
     let dx = theta.cos() * radius;
     let dy = theta.sin() * radius;
     let (x, y) = pos;
@@ -119,11 +119,11 @@ pub fn orient(theta: f32, radius: f32, pos: (f32, f32)) -> (f32, f32) {
 /// Parameters to create an orbit
 pub struct OrbitParameters {
     /// Semi-major axis, meters
-    pub a: f32,
+    pub a: f64,
     /// Eccentricity
-    pub e: f32,
+    pub e: f64,
     /// True anomaly, radians
-    pub theta: f32,
+    pub theta: f64,
 }
 
 /// Configure the orbit of a body around another one.

@@ -5,7 +5,7 @@ use raylib::drawing::RaylibDrawHandle;
 pub struct Euler;
 
 impl Kinematics for Euler {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f32) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
         // Rn+1 = Rn + Vn*dt
         // Vn+1 = Vn + An*dt
         update_acceleration(bodies);

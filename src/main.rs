@@ -9,33 +9,34 @@ use crate::physics::collisions::handle_collisions;
 use crate::physics::euler::Euler;
 use crate::physics::leapfrog::{Leapfrog, LeapfrogKDK};
 use raylib::prelude::*;
-use std::collections::HashMap;
 
 const SPACE_SIZE: usize = 1500;
 
-const EARTH_MASS: f32 = 5.972 * 1E24;
-const MOON_MASS: f32 = 7.32 * 1E22;
-const SUN_MASS: f32 = 1.989 * 1E30;
-const MARS_MASS: f32 = 6.39 * 1E23;
-const HALEYS_COMET_MASS: f32 = 2.2 * 1E14;
-const MARS_VELOCITY: f32 = 24.077 * 1000.0; // m/s
-const EARTH_SUN_VELOCITY: f32 = 29_784.8;
-const MOON_EARTH_VELOCITY: f32 = 1023.;
-const HALEYS_COMET_VELOCITY: f32 = 54.6 * 1000.;
+const EARTH_MASS: f64 = 5.972 * 1E24;
+const MOON_MASS: f64 = 7.32 * 1E22;
+const SUN_MASS: f64 = 1.989 * 1E30;
+const MARS_MASS: f64 = 6.39 * 1E23;
+const HALEYS_COMET_MASS: f64 = 2.2 * 1E14;
+const MARS_VELOCITY: f64 = 24.077 * 1000.0; // m/s
+const EARTH_SUN_VELOCITY: f64 = 29_784.8;
+const MOON_EARTH_VELOCITY: f64 = 1023.;
+const HALEYS_COMET_VELOCITY: f64 = 54.6 * 1000.;
 
-const SUN_MARS_DISTANCE: f32 = 243230000000.;
-const SUN_EARTH_DISTANCE: f32 = 149597870700.;
-const EARTH_MOON_DISTANCE: f32 = 384400000.;
-const SUN_HALEY_DISTANCE: f32 = 87_831_000. * 1000.;
+const SUN_MARS_DISTANCE: f64 = 243230000000.;
+const SUN_EARTH_DISTANCE: f64 = 149597870700.;
+const EARTH_MOON_DISTANCE: f64 = 384400000.;
+const SUN_HALEY_DISTANCE: f64 = 87_831_000. * 1000.;
 
-const SUN_RADIUS: f32 = 6.957e+8;
-const EARTH_RADIUS: f32 = 6.378e+6;
-const MARS_RADIUS: f32 = 3389500.;
-const MOON_RADIUS: f32 = 1737400.;
-const HALEYS_RADIUS: f32 = 5500.;
+const SUN_RADIUS: f64 = 6.957e+8;
+const EARTH_RADIUS: f64 = 6.378e+6;
+const MARS_RADIUS: f64 = 3389500.;
+const MOON_RADIUS: f64 = 1737400.;
+const HALEYS_RADIUS: f64 = 5500.;
+
+pub const AU : f64 = SUN_EARTH_DISTANCE;
 
 enum CameraPosition {
-    UniverseAbsolute((f32, f32)),
+    UniverseAbsolute((f64, f64)),
     BodyRelative(BodyId),
 }
 
@@ -111,6 +112,7 @@ fn main() {
         tier1: belt,
     };
 
+    let mut compute_collisions = false;
     let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
     let mut camera_position = CameraPosition::BodyRelative(0);
 
@@ -131,7 +133,7 @@ fn main() {
 
     while !rl.window_should_close() {
         // Handle mouse zoom
-        let mouse_wheel = rl.get_mouse_wheel_move();
+        let mouse_wheel = rl.get_mouse_wheel_move() as f64;
 
         if mouse_wheel > 0. {
             scale *= mouse_wheel * 1.1;
@@ -174,6 +176,9 @@ fn main() {
                 kinematics_index = (kinematics_index + 1) % kinematics.len();
                 kin = &kinematics[kinematics_index];
             }
+            Some(KeyboardKey::KEY_C) => {
+                compute_collisions = !compute_collisions;
+            }
             Some(KeyboardKey::KEY_Q) => {
                 break;
             }
@@ -183,7 +188,10 @@ fn main() {
         // Simulate
         // dt in secs
         kin.step(&mut simulated, 1800. * 24.);
-        handle_collisions(&mut simulated);
+
+        if compute_collisions {
+            handle_collisions(&mut simulated);
+        }
 
         // Draw
         let mut draw_handle = rl.begin_drawing(&thread);
@@ -192,9 +200,24 @@ fn main() {
         draw_universe_relative(&mut draw_handle, &simulated, get_universe_center!(), scale);
 
         draw_handle.draw_text(kin.name(), 14, SPACE_SIZE as i32 - 14 * 2, 14, Color::WHITE);
+
+        let bodies_text = &format!("{0} bodies", simulated.len());
         draw_handle.draw_text(
-            &format!("{0} bodies", simulated.len()),
+            bodies_text,
             draw_handle.measure_text(kin.name(), 14) + 2 * 14,
+            SPACE_SIZE as i32 - 14 * 2,
+            14,
+            Color::WHITE,
+        );
+
+        let collisions_text = match compute_collisions {
+            true => "Collisions on",
+            false => "Collisions off",
+        };
+
+        draw_handle.draw_text(
+            collisions_text,
+            draw_handle.measure_text(kin.name(), 14) + draw_handle.measure_text(&bodies_text, 14) + 4 * 14,
             SPACE_SIZE as i32 - 14 * 2,
             14,
             Color::WHITE,
