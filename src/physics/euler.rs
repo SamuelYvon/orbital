@@ -1,16 +1,16 @@
-use crate::body::Body;
+use crate::body::{Body, OrbitalBodies};
 use crate::physics::{Kinematics, update_acceleration};
 use raylib::drawing::RaylibDrawHandle;
 
 pub struct Euler;
 
 impl Kinematics for Euler {
-    fn step(&self, bodies: &mut [Body], dt: f32) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f32) {
         // Rn+1 = Rn + Vn*dt
         // Vn+1 = Vn + An*dt
         update_acceleration(bodies);
 
-        for body in bodies {
+        for body in bodies.iter_mut() {
             if body.fixed {
                 continue;
             }

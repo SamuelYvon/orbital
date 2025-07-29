@@ -1,6 +1,7 @@
-use crate::body::Body;
+use crate::body::{Body, OrbitalBodies, TrailParameter};
 use raylib::color::Color;
 use raylib::drawing::{RaylibDraw, RaylibDrawHandle};
+use ringbuffer::RingBuffer;
 
 /// Converts coordinates from the universe into coordinates to the screen
 #[inline]
@@ -59,16 +60,26 @@ fn draw_body_lines(
 
 pub fn draw_universe_relative(
     handle: &mut RaylibDrawHandle,
-    bodies: &[Body],
+    bodies: &OrbitalBodies,
     universe_center: (f32, f32),
     scale: f32,
 ) {
     let boundary = handle.get_screen_height();
     let screen_center = boundary / 2;
 
-    for body in bodies {
+    for body in bodies.iter() {
         let (screen_x, screen_y) =
             universe_coord_to_screen(body.pos(), scale, universe_center, screen_center);
+
+        // TODO: you can do this better
+        if body.trail_parameter == TrailParameter::Trail {
+            draw_body_lines(
+                handle,
+                body.pos_list.iter().cloned().collect::<Vec<_>>().as_ref(),
+                universe_center,
+                scale,
+            );
+        }
 
         // Outside the range
         if screen_x >= boundary || screen_y >= boundary || screen_x < 0 || screen_y < 0 {
@@ -76,8 +87,6 @@ pub fn draw_universe_relative(
         }
 
         handle.draw_circle(screen_x, screen_y, body.radius, body.color);
-
-        draw_body_lines(handle, &body.pos_list, universe_center, scale);
     }
 }
 

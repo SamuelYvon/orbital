@@ -1,7 +1,8 @@
 pub mod euler;
 pub mod leapfrog;
 
-use crate::body::Body;
+use crate::body::{Body, BodyId, OrbitalBodies};
+use std::collections::HashMap;
 
 /// Gravity constant
 pub const G: f32 = 6.6674 * 1E-11;
@@ -10,8 +11,8 @@ pub const G: f32 = 6.6674 * 1E-11;
 /// bodies.
 pub trait Kinematics {
     /// Compute a time step
-    fn step(&self, bodies: &mut [Body], dt: f32);
-    
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f32);
+
     fn name(&self) -> &'static str;
 }
 
@@ -29,45 +30,77 @@ pub fn distance(body1: &Body, body2: &Body) -> (f32, f32) {
     (sum, sum.sqrt())
 }
 
+fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f32, f32) {
+    let bi = pullee;
+    let bj = pulling;
+
+    let pos_i = bi.pos();
+    let pos_j = bj.pos();
+
+    let (d2, d) = distance(bi, bj);
+    let d3 = d * d2;
+
+    let mj = bj.mass;
+
+    let body_grav_constant = -G * mj;
+
+    let x_acc = (body_grav_constant * (pos_i.0 - pos_j.0)) / d3;
+    let y_acc = (body_grav_constant * (pos_i.1 - pos_j.1)) / d3;
+
+    (x_acc, y_acc)
+}
+
 /// Update the acceleration of each bodies relative to one another.
 /// This is an expensive operation, because the acceleration of a body
 /// depends on **all the other bodies**. This means the performance is
-/// expected to be within `O(n^2)`
-pub fn update_acceleration(bodies: &mut [Body]) -> Vec<(f32, f32)> {
-    let mut accelerations = Vec::with_capacity(bodies.len());
-    for i in 0..bodies.len() {
-        if bodies[i].fixed {
-            accelerations.push((0., 0.));
-            continue;
-        }
+/// expected to be within `O(n^2)`.
+///
+/// This function takes into account the tier of each body.
+pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, f32)> {
+    let mut accelerations = HashMap::new();
+
+    // Pullee are tier 0, only pulled by tier0
+    for i in 0..bodies.tier0.len() {
+        let pullee = &bodies.tier0[i];
 
         let mut x_acc = 0.0;
         let mut y_acc = 0.0;
 
-        for j in 0..bodies.len() {
-            if i == j {
-                continue;
+        if !pullee.fixed {
+            for j in 0..bodies.tier0.len() {
+                if i == j {
+                    continue;
+                }
+
+                let pulling = &bodies.tier0[j];
+
+                let (x, y) = pairwise_acceleration(pullee, pulling);
+                x_acc += x;
+                y_acc += y;
             }
-
-            let bi = &bodies[i];
-            let bj = &bodies[j];
-
-            let pos_i = bi.pos();
-            let pos_j = bj.pos();
-
-            let (d2, d) = distance(bi, bj);
-            let d3 = d * d2;
-
-            let mj = bj.mass;
-
-            let body_grav_constant = (-G * mj);
-
-            x_acc += (body_grav_constant * (pos_i.0 - pos_j.0)) / d3;
-            y_acc += (body_grav_constant * (pos_i.1 - pos_j.1)) / d3;
         }
 
-        bodies[i].accel = (x_acc, y_acc);
-        accelerations.push(bodies[i].accel);
+        // Re-borrow for mutability
+        let pullee = &mut bodies.tier0[i];
+        pullee.accel = (x_acc, y_acc);
+        accelerations.insert(pullee.id(), (x_acc, y_acc));
+    }
+
+    // Pullee are tier1, only pulled by tier0
+    for pullee in bodies.tier1.iter_mut() {
+        let mut x_acc = 0.0;
+        let mut y_acc = 0.0;
+
+        if !pullee.fixed {
+            for pulling in bodies.tier0.iter() {
+                let (x, y) = pairwise_acceleration(pullee, pulling);
+                x_acc += x;
+                y_acc += y;
+            }
+        }
+
+        pullee.accel = (x_acc, y_acc);
+        accelerations.insert(pullee.id(), (x_acc, y_acc));
     }
 
     accelerations
@@ -76,8 +109,8 @@ pub fn update_acceleration(bodies: &mut [Body]) -> Vec<(f32, f32)> {
 /// Given an angle in radians, a radius (a distance in meters), computes the position of the second
 /// body relative to the one at [pos], assuming it is on a circle around the first body.
 pub fn orient(theta: f32, radius: f32, pos: (f32, f32)) -> (f32, f32) {
-    let dy = theta.sin() * radius;
     let dx = theta.cos() * radius;
+    let dy = theta.sin() * radius;
     let (x, y) = pos;
     (x + dx, y + dy)
 }
@@ -92,20 +125,20 @@ pub struct OrbitParameters {
     pub theta: f32,
 }
 
-/// Configure an orbit between two bodies.
+/// Configure the orbit of a body around another one.
 ///
 /// Warning:
-/// Overwrites the position of the bodies, as well as their velocities.
+/// Overwrites the position of the orbiting body, as well as the velocity.
 /// This means you should set the mass of the bodies and place them both
 /// anywhere, then configure the orbit.
-pub fn kepler_orbit(orb: OrbitParameters, body1: &mut Body, body2: &mut Body) {
-    let mu = G * (body1.mass + body2.mass);
+pub fn kepler_orbit(orb: OrbitParameters, orbiting_body: &mut Body, point_of_reference: &Body) {
+    let mu = G * (orbiting_body.mass + point_of_reference.mass);
 
     let p = orb.a * (1. - orb.e.powf(2.0));
 
     // Position
-    let r = (orb.a * p) / (1. + orb.e * orb.theta.cos());
-    let (rx, ry) = (orb.theta.cos() * r, orb.theta.sin() * r);
+    let radius = p / (1. + orb.e * orb.theta.cos());
+    let (rx, ry) = (orb.theta.cos() * radius, orb.theta.sin() * radius);
 
     // Velocity
     let factor = (mu / p).sqrt();
@@ -114,12 +147,9 @@ pub fn kepler_orbit(orb: OrbitParameters, body1: &mut Body, body2: &mut Body) {
         (orb.theta.cos() + orb.e) * factor,
     );
 
-    let m1_mt = (body1.mass) / (body1.mass + body2.mass);
-    let m2_mt = (body2.mass) / (body1.mass + body2.mass);
+    let total_mass = orbiting_body.mass + point_of_reference.mass;
+    let m2_mt = (point_of_reference.mass) / total_mass;
 
-    body1.set_pos((-m2_mt * rx, -m2_mt * ry));
-    body2.set_pos((m1_mt * rx, m1_mt * ry));
-
-    body1.velocity = (-m2_mt * vx, -m2_mt * vy);
-    body2.velocity = (m1_mt * vx, m1_mt * vy);
+    orbiting_body.set_pos((-m2_mt * rx, -m2_mt * ry));
+    orbiting_body.velocity = (-m2_mt * vx, -m2_mt * vy);
 }
