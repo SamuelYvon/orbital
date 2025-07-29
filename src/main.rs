@@ -2,12 +2,13 @@ mod body;
 mod camera;
 mod physics;
 
-use crate::body::{Body, OrbitalBodies, create_asteroid_belt};
+use crate::body::{Body, BodyId, OrbitalBodies, bodies_to_map, create_asteroid_belt};
 use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
 use crate::physics::euler::Euler;
 use crate::physics::leapfrog::{Leapfrog, LeapfrogKDK};
 use raylib::prelude::*;
+use std::collections::HashMap;
 
 const SPACE_SIZE: usize = 1500;
 
@@ -26,9 +27,15 @@ const SUN_EARTH_DISTANCE: f32 = 149597870700.;
 const EARTH_MOON_DISTANCE: f32 = 384400000.;
 const SUN_HALEY_DISTANCE: f32 = 87_831_000. * 1000.;
 
+const SUN_RADIUS: f32 = 6.957e+8;
+const EARTH_RADIUS: f32 = 6.378e+6;
+const MARS_RADIUS: f32 = 3389500.;
+const MOON_RADIUS: f32 = 1737400.;
+const HALEYS_RADIUS: f32 = 5500.;
+
 enum CameraPosition {
     UniverseAbsolute((f32, f32)),
-    BodyRelative(usize),
+    BodyRelative(BodyId),
 }
 
 fn main() {
@@ -39,22 +46,27 @@ fn main() {
 
     rl.set_target_fps(60);
 
+    let sun = Body::new(
+        SUN_MASS,
+        (0., 0.),
+        SUN_RADIUS,
+        20.,
+        Color::YELLOW,
+        (0.0, 0.0),
+        (0.0, 0.0),
+        true,
+    );
+
+    let belt = bodies_to_map(create_asteroid_belt(&sun, 10_000, SUN_EARTH_DISTANCE));
+
     let mut simulated = OrbitalBodies {
-        tier0: vec![
-            // Sun
-            Body::new(
-                SUN_MASS,
-                (0., 0.),
-                20.,
-                Color::YELLOW,
-                (0.0, 0.0),
-                (0.0, 0.0),
-                true,
-            ),
+        tier0: bodies_to_map(vec![
+            sun,
             // Mars
             Body::new(
                 MARS_MASS,
                 (0., 0. + SUN_MARS_DISTANCE),
+                MARS_RADIUS,
                 8.,
                 Color::RED,
                 (MARS_VELOCITY, 0.),
@@ -65,6 +77,7 @@ fn main() {
             Body::new(
                 EARTH_MASS,
                 (0., 0. + SUN_EARTH_DISTANCE),
+                EARTH_RADIUS,
                 10.,
                 Color::BLUE,
                 (EARTH_SUN_VELOCITY, 0.0),
@@ -75,6 +88,7 @@ fn main() {
             Body::new(
                 MOON_MASS,
                 (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
+                MOON_RADIUS,
                 3.0,
                 Color::GRAY,
                 (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
@@ -85,22 +99,16 @@ fn main() {
             Body::new(
                 HALEYS_COMET_MASS,
                 (0. + SUN_HALEY_DISTANCE, 0.),
+                HALEYS_RADIUS,
                 3.0,
                 Color::ORANGERED,
                 (0., HALEYS_COMET_VELOCITY),
                 (0.0, 0.0),
                 false,
             ),
-        ],
-        tier1: vec![],
+        ]),
+        tier1: belt,
     };
-
-    // Asteroid belt around the sun
-    simulated.tier1.extend(create_asteroid_belt(
-        &simulated.tier0[0],
-        10_000,
-        SUN_EARTH_DISTANCE,
-    ));
 
     let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
     let mut camera_position = CameraPosition::BodyRelative(0);
@@ -115,7 +123,7 @@ fn main() {
         () => {{
             match camera_position {
                 CameraPosition::UniverseAbsolute(pos) => pos,
-                CameraPosition::BodyRelative(body) => simulated.tier0[body].pos(),
+                CameraPosition::BodyRelative(body) => simulated.get_by_id(body).unwrap().pos(),
             }
         }};
     }
@@ -139,9 +147,9 @@ fn main() {
             let screen_center = (SPACE_SIZE / 2) as i32;
 
             let mut set = false;
-            for (i, body) in simulated.tier0.iter().enumerate() {
+            for (i, body) in simulated.tier0.iter() {
                 if click_in_body(screen_position, universe_center, screen_center, scale, body) {
-                    camera_position = CameraPosition::BodyRelative(i);
+                    camera_position = CameraPosition::BodyRelative(*i);
                     set = true;
                     break;
                 }

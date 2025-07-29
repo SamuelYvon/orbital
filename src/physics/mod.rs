@@ -60,19 +60,19 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, 
     let mut accelerations = HashMap::new();
 
     // Pullee are tier 0, only pulled by tier0
-    for i in 0..bodies.tier0.len() {
-        let pullee = &bodies.tier0[i];
+    for pullee_id in bodies.tier0.keys().copied().collect::<Vec<_>>() {
+        let pullee = bodies.tier0.get(&pullee_id).unwrap();
 
         let mut x_acc = 0.0;
         let mut y_acc = 0.0;
 
         if !pullee.fixed {
-            for j in 0..bodies.tier0.len() {
-                if i == j {
+            for pulling_id in bodies.tier0.keys().cloned() {
+                if pullee_id == pulling_id {
                     continue;
                 }
 
-                let pulling = &bodies.tier0[j];
+                let pulling = bodies.tier0.get(&pulling_id).unwrap();
 
                 let (x, y) = pairwise_acceleration(pullee, pulling);
                 x_acc += x;
@@ -81,18 +81,18 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, 
         }
 
         // Re-borrow for mutability
-        let pullee = &mut bodies.tier0[i];
+        let pullee = &mut bodies.tier0.get_mut(&pullee_id).unwrap();
         pullee.accel = (x_acc, y_acc);
         accelerations.insert(pullee.id(), (x_acc, y_acc));
     }
 
     // Pullee are tier1, only pulled by tier0
-    for pullee in bodies.tier1.iter_mut() {
+    for (pullee_id, pullee) in bodies.tier1.iter_mut() {
         let mut x_acc = 0.0;
         let mut y_acc = 0.0;
 
         if !pullee.fixed {
-            for pulling in bodies.tier0.iter() {
+            for (_, pulling) in bodies.tier0.iter() {
                 let (x, y) = pairwise_acceleration(pullee, pulling);
                 x_acc += x;
                 y_acc += y;
@@ -100,7 +100,7 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f32, 
         }
 
         pullee.accel = (x_acc, y_acc);
-        accelerations.insert(pullee.id(), (x_acc, y_acc));
+        accelerations.insert(*pullee_id, (x_acc, y_acc));
     }
 
     accelerations

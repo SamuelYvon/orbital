@@ -86,7 +86,7 @@ pub fn draw_universe_relative(
             continue;
         }
 
-        handle.draw_circle(screen_x, screen_y, body.radius, body.color);
+        handle.draw_circle(screen_x, screen_y, body.draw_radius, body.color);
     }
 }
 
@@ -98,7 +98,7 @@ pub fn click_in_body(
     body: &Body,
 ) -> bool {
     // TODO: this will take into account the scaling, but the drawing of the radius does not.
-    let universe_diameter = body.radius / scale;
+    let universe_diameter = body.draw_radius / scale;
 
     // Convert the click to universe pos
     let (cx, cy) = screen_coords_to_universe(screen_pos, scale, universe_center, screen_center);
