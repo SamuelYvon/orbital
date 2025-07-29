@@ -46,6 +46,25 @@ impl OrbitalBodies {
     pub fn get_by_id(&self, id: BodyId) -> Option<&Body> {
         self.tier0.get(&id).or_else(|| self.tier1.get(&id))
     }
+
+    pub fn get_mut_by_id(&mut self, id: BodyId) -> Option<&mut Body> {
+        self.tier0.get_mut(&id).or_else(|| self.tier1.get_mut(&id))
+    }
+
+    pub fn remove(&mut self, id: BodyId) {
+        self.tier0.remove(&id);
+        self.tier1.remove(&id);
+    }
+
+    pub fn len(&self) -> usize {
+        self.tier0.len() + self.tier1.len()
+    }
+}
+
+impl PartialEq for Body {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 /// Converts a [Vec] of bodies into a Map
@@ -116,6 +135,10 @@ impl Body {
 
     pub fn pos(&self) -> (f32, f32) {
         self.pos
+    }
+
+    pub fn pos_arr(&self) -> [f32; 2] {
+        [self.pos.0, self.pos.1]
     }
 
     pub fn set_pos(&mut self, pos: (f32, f32)) {

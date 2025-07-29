@@ -1,3 +1,4 @@
+pub mod collisions;
 pub mod euler;
 pub mod leapfrog;
 

@@ -5,6 +5,7 @@ mod physics;
 use crate::body::{Body, BodyId, OrbitalBodies, bodies_to_map, create_asteroid_belt};
 use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
+use crate::physics::collisions::handle_collisions;
 use crate::physics::euler::Euler;
 use crate::physics::leapfrog::{Leapfrog, LeapfrogKDK};
 use raylib::prelude::*;
@@ -179,13 +180,24 @@ fn main() {
             _ => (),
         };
 
-        let mut draw_handle = rl.begin_drawing(&thread);
-        draw_handle.clear_background(Color::BLACK);
-        draw_universe_relative(&mut draw_handle, &simulated, get_universe_center!(), scale);
-
+        // Simulate
         // dt in secs
         kin.step(&mut simulated, 1800. * 24.);
+        handle_collisions(&mut simulated);
+
+        // Draw
+        let mut draw_handle = rl.begin_drawing(&thread);
+        draw_handle.clear_background(Color::BLACK);
+
+        draw_universe_relative(&mut draw_handle, &simulated, get_universe_center!(), scale);
 
         draw_handle.draw_text(kin.name(), 14, SPACE_SIZE as i32 - 14 * 2, 14, Color::WHITE);
+        draw_handle.draw_text(
+            &format!("{0} bodies", simulated.len()),
+            draw_handle.measure_text(kin.name(), 14) + 2 * 14,
+            SPACE_SIZE as i32 - 14 * 2,
+            14,
+            Color::WHITE,
+        );
     }
 }
