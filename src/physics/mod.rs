@@ -4,6 +4,7 @@ pub mod leapfrog;
 
 use crate::body::{Body, BodyId, OrbitalBodies};
 use std::collections::HashMap;
+use crate::AU;
 
 /// Gravity constant
 pub const G: f64 = 6.6674 * 1E-11;
@@ -38,15 +39,18 @@ fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f64, f64) {
     let pos_i = bi.pos();
     let pos_j = bj.pos();
 
-    let (d2, d) = distance(bi, bj);
-    let d3 = d * d2;
+    let (d2, _) = distance(bi, bj);
 
     let mj = bj.mass;
 
     let body_grav_constant = -G * mj;
 
-    let x_acc = (body_grav_constant * (pos_i.0 - pos_j.0)) / d3;
-    let y_acc = (body_grav_constant * (pos_i.1 - pos_j.1)) / d3;
+    // Use softening to avoid slingshot of bodies
+    let softening = AU * 0.001;
+    let softened_distance = (d2 + softening.powf(2.)).powf(1.5);
+
+    let x_acc = (body_grav_constant * (pos_i.0 - pos_j.0)) / softened_distance;
+    let y_acc = (body_grav_constant * (pos_i.1 - pos_j.1)) / softened_distance;
 
     (x_acc, y_acc)
 }

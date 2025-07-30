@@ -33,7 +33,7 @@ const MARS_RADIUS: f64 = 3389500.;
 const MOON_RADIUS: f64 = 1737400.;
 const HALEYS_RADIUS: f64 = 5500.;
 
-pub const AU : f64 = SUN_EARTH_DISTANCE;
+pub const AU: f64 = SUN_EARTH_DISTANCE;
 
 enum CameraPosition {
     UniverseAbsolute((f64, f64)),
@@ -112,7 +112,7 @@ fn main() {
         tier1: belt,
     };
 
-    let mut compute_collisions = false;
+    let mut compute_collisions = !false;
     let mut scale = (1. / (SUN_EARTH_DISTANCE)) * 200.;
     let mut camera_position = CameraPosition::BodyRelative(0);
 
@@ -217,7 +217,9 @@ fn main() {
 
         draw_handle.draw_text(
             collisions_text,
-            draw_handle.measure_text(kin.name(), 14) + draw_handle.measure_text(&bodies_text, 14) + 4 * 14,
+            draw_handle.measure_text(kin.name(), 14)
+                + draw_handle.measure_text(bodies_text, 14)
+                + 4 * 14,
             SPACE_SIZE as i32 - 14 * 2,
             14,
             Color::WHITE,

@@ -1,6 +1,5 @@
-use crate::body::{Body, OrbitalBodies};
+use crate::body::OrbitalBodies;
 use crate::physics::{Kinematics, update_acceleration};
-use raylib::drawing::RaylibDrawHandle;
 
 pub struct Euler;
 

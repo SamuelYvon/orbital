@@ -9,6 +9,23 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Instant;
 
+const MAX_DISTANCE_DEFAULT: f64 = AU * 10.;
+const BIN_WIDTH_DEFAULT: f64 = AU / 2.;
+
+struct BinBodiesParam {
+    max_distance: f64,
+    bin_width: f64,
+}
+
+impl Default for BinBodiesParam {
+    fn default() -> Self {
+        Self {
+            max_distance: MAX_DISTANCE_DEFAULT,
+            bin_width: BIN_WIDTH_DEFAULT,
+        }
+    }
+}
+
 enum CollisionResult {
     Merge {
         body_id: BodyId,
@@ -57,12 +74,8 @@ fn append_collision(body1: &Body, body2: &Body, collisions: &mut Vec<CollisionRe
     }
 }
 
-/// Check all pairs of bodies and returns the list of results
-#[allow(unused)]
-fn compute_pairwise_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
+fn compute_pairwise_collision_slice(bodies: &[&Body]) -> Vec<CollisionResult> {
     let mut collisions = vec![];
-    let bodies = orbital_bodies.iter().collect::<Vec<_>>();
-
     for i in 0..bodies.len() {
         for j in 0..bodies.len() {
             if i == j {
@@ -76,17 +89,28 @@ fn compute_pairwise_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionR
     collisions
 }
 
+/// Check all pairs of bodies and returns the list of results
+#[allow(unused)]
+fn compute_pairwise_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
+    let bodies = orbital_bodies.iter().collect::<Vec<_>>();
+    compute_pairwise_collision_slice(bodies.as_slice())
+}
+
 /// Bins of fixed width
-fn bin_bodies(orbital_bodies: &OrbitalBodies) -> Vec<HashSet<BodyId>> {
-    let max_distance = (AU * 10.).sqrt();
-    let bin_width = AU / 2.;
+fn bin_bodies(orbital_bodies: &OrbitalBodies, params: BinBodiesParam) -> Vec<HashSet<BodyId>> {
+    let BinBodiesParam {
+        max_distance,
+        bin_width,
+    } = params;
+
+    let body_in_range = |body: &Body| -> bool {
+        let (x, y) = body.pos();
+        (x.powf(2.) + y.powf(2.)).sqrt() < max_distance
+    };
 
     let width = orbital_bodies
         .iter()
-        .filter(|body| {
-            let (x, y) = body.pos();
-            (x.powf(2.) + y.powf(2.)) < max_distance
-        })
+        .filter(|b| body_in_range(b))
         .map(|body| body.pos())
         .map(|(x, y)| {
             let xabs = x.abs();
@@ -100,26 +124,42 @@ fn bin_bodies(orbital_bodies: &OrbitalBodies) -> Vec<HashSet<BodyId>> {
                 Ordering::Less
             }
         })
-        .unwrap();
+        .unwrap()
+        * 2.0;
 
     let bin_count = (width / bin_width) as usize;
-    let mut bins = Vec::<HashSet<BodyId>>::with_capacity(bin_count * bin_count);
 
-    for body in orbital_bodies.iter() {
-        let (x, y) = body.pos();
-        let offset = width / 2.;
+    let mut bins: Vec<HashSet<BodyId>> = (0..bin_count * bin_count)
+        .map(|_| HashSet::new())
+        .collect::<Vec<_>>();
 
-        let (x, y) = (x + offset, y + offset);
-        assert!(
-            x >= 0. && y >= 0.,
-            "Offset coordinates should always be in a positive area"
-        );
+    if bins.len() > 0 {
+        for body in orbital_bodies.iter().filter(|b| body_in_range(b)) {
+            let (x, y) = body.pos();
+            let offset = width / 2.;
 
-        let bx = (x / bin_width) as usize;
-        let by = (y / bin_width) as usize;
+            let (x, y) = (x + offset, y + offset);
+            assert!(
+                x >= 0. && y >= 0.,
+                "Offset coordinates should always be in a positive area"
+            );
 
-        let index = bx + by * bin_count;
-        bins[index].insert(body.id());
+            let bx = ((x / bin_width) as usize).min(bin_count - 1);
+            let by = ((y / bin_width) as usize).min(bin_count - 1);
+
+            let index = bx + by * bin_count;
+            bins[index].insert(body.id());
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        let min = bins.iter().map(HashSet::len).min().unwrap();
+        let max = bins.iter().map(HashSet::len).max().unwrap();
+        let total = bins.iter().map(HashSet::len).sum::<usize>();
+        let avg = total / bins.len();
+
+        println!("Bin stats: max={max} min={min} avg={avg}");
     }
 
     bins
@@ -166,10 +206,28 @@ fn compute_kdtree_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionRes
     vec![]
 }
 
+/// Compute collisions using spatial hashing
+#[allow(unused)]
+fn compute_collisions_spatial_hash(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
+    let bins = bin_bodies(orbital_bodies, BinBodiesParam::default());
+
+    bins.par_iter()
+        .map(|bin| {
+            let bodies = bin
+                .iter()
+                .map(|id| orbital_bodies.get_by_id(*id).unwrap())
+                .collect::<Vec<_>>();
+
+            compute_pairwise_collision_slice(bodies.as_slice())
+        })
+        .flatten()
+        .collect::<Vec<_>>()
+}
+
 /// Handle the collisions for the orbital system
 pub fn handle_collisions(orbital_bodies: &mut OrbitalBodies) {
     let start = Instant::now();
-    let collisions = compute_kdtree_collisions(orbital_bodies);
+    let collisions = compute_collisions_spatial_hash(orbital_bodies);
     let end = Instant::now();
     let delta = end - start;
 
@@ -191,5 +249,55 @@ pub fn handle_collisions(orbital_bodies: &mut OrbitalBodies) {
                 orbital_bodies.remove(body_id);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::body::{Body, OrbitalBodies, bodies_to_map};
+    use crate::physics::collisions::{BinBodiesParam, bin_bodies};
+    use raylib::color::Color;
+
+    #[test]
+    fn test_bin_bodies() {
+        fn body(x: i32, y: i32) -> Body {
+            Body::new(
+                0.,
+                (x as f64, y as f64),
+                1.,
+                1.,
+                Color::WHITE,
+                (0., 0.),
+                (0., 0.),
+                true,
+            )
+        }
+
+        let b0 = body(-10, -10);
+        let b1 = body(-5, -5);
+        let b2 = body(5, 5);
+        let b3 = body(10, 10);
+        let b4 = body(0, 0);
+        let b5 = body(2, 2);
+        let b6 = body(1, 1);
+        let b6_id = *&b6.id();
+
+        let bodies = OrbitalBodies {
+            tier0: bodies_to_map(vec![b0, b1, b2, b3, b4, b5, b6]),
+            tier1: bodies_to_map(vec![]),
+        };
+
+        let binned = bin_bodies(
+            &bodies,
+            BinBodiesParam {
+                max_distance: 100.,
+                bin_width: 2.,
+            },
+        );
+
+        assert!(
+            binned.iter().all(|b| b.len() <= 1 || b.contains(&b6_id)),
+            "There should not be more than a body per bin"
+        );
     }
 }

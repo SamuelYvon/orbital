@@ -1,4 +1,4 @@
-use crate::body::{Body, OrbitalBodies};
+use crate::body::OrbitalBodies;
 use crate::physics::{Kinematics, update_acceleration};
 use std::collections::HashMap;
 

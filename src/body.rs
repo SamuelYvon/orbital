@@ -187,7 +187,7 @@ pub fn create_asteroid_belt(
         kepler_orbit(
             OrbitParameters { a, e, theta },
             &mut asteroid,
-            &reference_body,
+            reference_body,
         );
 
         ret.push(asteroid);
