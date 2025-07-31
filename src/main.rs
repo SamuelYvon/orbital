@@ -2,6 +2,7 @@ mod body;
 mod camera;
 mod physics;
 
+use std::panic::panic_any;
 use crate::body::{Body, BodyId, OrbitalBodies, bodies_to_map, create_asteroid_belt};
 use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
@@ -59,22 +60,22 @@ fn main() {
         true,
     );
 
-    let belt = bodies_to_map(create_asteroid_belt(&sun, 10_000, SUN_EARTH_DISTANCE));
+    let belt = bodies_to_map(create_asteroid_belt(&sun, 0, AU));
 
     let mut simulated = OrbitalBodies {
         tier0: bodies_to_map(vec![
             sun,
             // Mars
-            Body::new(
-                MARS_MASS,
-                (0., 0. + SUN_MARS_DISTANCE),
-                MARS_RADIUS,
-                8.,
-                Color::RED,
-                (MARS_VELOCITY, 0.),
-                (0.0, 0.0),
-                false,
-            ),
+            // Body::new(
+            //     MARS_MASS,
+            //     (0., 0. + SUN_MARS_DISTANCE),
+            //     MARS_RADIUS,
+            //     8.,
+            //     Color::RED,
+            //     (MARS_VELOCITY, 0.),
+            //     (0.0, 0.0),
+            //     false,
+            // ),
             // Earth
             Body::new(
                 EARTH_MASS,
@@ -87,27 +88,27 @@ fn main() {
                 false,
             ),
             // Moon
-            Body::new(
-                MOON_MASS,
-                (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
-                MOON_RADIUS,
-                3.0,
-                Color::GRAY,
-                (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
-                (0., 0.),
-                false,
-            ),
+            // Body::new(
+            //     MOON_MASS,
+            //     (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
+            //     MOON_RADIUS,
+            //     3.0,
+            //     Color::GRAY,
+            //     (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
+            //     (0., 0.),
+            //     false,
+            // ),
             // Haley's comet
-            Body::new(
-                HALEYS_COMET_MASS,
-                (0. + SUN_HALEY_DISTANCE, 0.),
-                HALEYS_RADIUS,
-                3.0,
-                Color::ORANGERED,
-                (0., HALEYS_COMET_VELOCITY),
-                (0.0, 0.0),
-                false,
-            ),
+            // Body::new(
+            //     HALEYS_COMET_MASS,
+            //     (0. + SUN_HALEY_DISTANCE, 0.),
+            //     HALEYS_RADIUS,
+            //     3.0,
+            //     Color::ORANGERED,
+            //     (0., HALEYS_COMET_VELOCITY),
+            //     (0.0, 0.0),
+            //     false,
+            // ),
         ]),
         tier1: belt,
     };
@@ -130,6 +131,11 @@ fn main() {
             }
         }};
     }
+
+    let mut last_kinematic = kin.step(&mut simulated, 0.01);
+    
+    println!("Total energy {0}", last_kinematic.total());
+    // panic!("no more");
 
     while !rl.window_should_close() {
         // Handle mouse zoom
@@ -187,7 +193,13 @@ fn main() {
 
         // Simulate
         // dt in secs
-        kin.step(&mut simulated, 1800. * 24.);
+        let step_kinematics = kin.step(&mut simulated, 1800. * 24.);
+        #[cfg(debug_assertions)] {
+            let delta_energy = step_kinematics - last_kinematic;
+            println!("Total energy {0}", step_kinematics.total());
+            println!("Energy delta: ${delta_energy:.3}");
+            last_kinematic = step_kinematics;
+        }
 
         if compute_collisions {
             handle_collisions(&mut simulated);

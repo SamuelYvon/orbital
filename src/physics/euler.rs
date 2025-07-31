@@ -1,13 +1,17 @@
 use crate::body::OrbitalBodies;
-use crate::physics::{Kinematics, update_acceleration};
+use crate::physics::{Kinematics, KinematicsDiagnostic, update_acceleration};
 
 pub struct Euler;
 
 impl Kinematics for Euler {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) -> KinematicsDiagnostic {
         // Rn+1 = Rn + Vn*dt
         // Vn+1 = Vn + An*dt
-        update_acceleration(bodies);
+
+        let mut potential_energy = 0.;
+        let mut kinetic_energy = 0.;
+
+        update_acceleration(bodies, &mut potential_energy);
 
         for body in bodies.iter_mut() {
             if body.fixed {
@@ -23,6 +27,13 @@ impl Kinematics for Euler {
             let ry_1 = ry + body.velocity.1 * dt;
 
             body.set_pos((rx_1, ry_1));
+
+            kinetic_energy += body.kinetic_energy();
+        }
+
+        KinematicsDiagnostic {
+            potential_energy,
+            kinetic_energy,
         }
     }
 

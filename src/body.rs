@@ -145,6 +145,11 @@ impl Body {
         self.pos_list.enqueue(pos);
         self.pos = pos
     }
+
+    pub fn kinetic_energy(&self) -> f64 {
+        let (vx, vy) = self.velocity;
+        0.5 * self.mass * (vx.powf(2.) + vy.powf(2.))
+    }
 }
 
 /// Create an asteroid belt of `asteroids` bodies. They will be randomly placed

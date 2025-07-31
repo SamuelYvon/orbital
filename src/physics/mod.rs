@@ -4,16 +4,36 @@ pub mod leapfrog;
 
 use crate::body::{Body, BodyId, OrbitalBodies};
 use std::collections::HashMap;
-use crate::AU;
+use std::ops::Sub;
 
 /// Gravity constant
 pub const G: f64 = 6.6674 * 1E-11;
+
+#[derive(Copy, Clone)]
+pub struct KinematicsDiagnostic {
+    kinetic_energy: f64,
+    potential_energy: f64,
+}
+
+impl KinematicsDiagnostic {
+    pub fn total(&self) -> f64 {
+        self.kinetic_energy + self.potential_energy
+    }
+}
+
+impl Sub for KinematicsDiagnostic {
+    type Output = f64;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.total() - rhs.total()
+    }
+}
 
 /// Implementations of the maths to compute the new position of a list of
 /// bodies.
 pub trait Kinematics {
     /// Compute a time step
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f64);
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) -> KinematicsDiagnostic;
 
     fn name(&self) -> &'static str;
 }
@@ -39,14 +59,16 @@ fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f64, f64) {
     let pos_i = bi.pos();
     let pos_j = bj.pos();
 
-    let (d2, _) = distance(bi, bj);
+    let (d2, d) = distance(bi, bj);
 
+    let mi = bi.mass;
     let mj = bj.mass;
 
     let body_grav_constant = -G * mj;
 
     // Use softening to avoid slingshot of bodies
-    let softening = AU * 0.001;
+    let softening = (0.7 * (mi.min(mj) / mi.max(mj)).sqrt()).min(1.)
+        * (pullee.physical_radius + pulling.physical_radius);
     let softened_distance = (d2 + softening.powf(2.)).powf(1.5);
 
     let x_acc = (body_grav_constant * (pos_i.0 - pos_j.0)) / softened_distance;
@@ -61,11 +83,18 @@ fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f64, f64) {
 /// expected to be within `O(n^2)`.
 ///
 /// This function takes into account the tier of each body.
-pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f64, f64)> {
+pub fn update_acceleration(
+    bodies: &mut OrbitalBodies,
+    potential_energy: &mut f64,
+) -> HashMap<BodyId, (f64, f64)> {
+    let mut potential_energy_acc = 0.;
+
     let mut accelerations = HashMap::new();
 
+    let body_ids = bodies.tier0.keys().copied().collect::<Vec<_>>();
+
     // Pullee are tier 0, only pulled by tier0
-    for pullee_id in bodies.tier0.keys().copied().collect::<Vec<_>>() {
+    for pullee_id in &body_ids {
         let pullee = bodies.tier0.get(&pullee_id).unwrap();
 
         let mut x_acc = 0.0;
@@ -73,7 +102,7 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f64, 
 
         if !pullee.fixed {
             for pulling_id in bodies.tier0.keys().cloned() {
-                if pullee_id == pulling_id {
+                if *pullee_id == pulling_id {
                     continue;
                 }
 
@@ -107,6 +136,40 @@ pub fn update_acceleration(bodies: &mut OrbitalBodies) -> HashMap<BodyId, (f64, 
         pullee.accel = (x_acc, y_acc);
         accelerations.insert(*pullee_id, (x_acc, y_acc));
     }
+
+    // Count tier0 gravity
+    let n = body_ids.len();
+    for i in 0..n {
+        for j in i + 1..n {
+            let bi = bodies.get_by_id(body_ids[i]).unwrap();
+            let bj = bodies.get_by_id(body_ids[j]).unwrap();
+
+            if bi.fixed || bj.fixed {
+                continue;
+            }
+
+            let (_, d) = distance(bi, bj);
+            let g = -G * bi.mass * bj.mass;
+            potential_energy_acc += g / d;
+        }
+    }
+
+    // Count tier1 gravity, no chance of doubling up here
+    for i in 0..n {
+        for bj in bodies.tier1.values() {
+            let bi = bodies.get_by_id(body_ids[i]).unwrap();
+
+            if bi.fixed || bj.fixed {
+                continue;
+            }
+
+            let (_, d) = distance(bi, bj);
+            let g = -G * bi.mass * bj.mass;
+            potential_energy_acc += g / d;
+        }
+    }
+
+    *potential_energy = potential_energy_acc;
 
     accelerations
 }

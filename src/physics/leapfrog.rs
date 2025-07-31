@@ -1,15 +1,18 @@
 use crate::body::OrbitalBodies;
-use crate::physics::{Kinematics, update_acceleration};
+use crate::physics::{Kinematics, update_acceleration, KinematicsDiagnostic};
 use std::collections::HashMap;
 
 pub struct Leapfrog;
 
 impl Kinematics for Leapfrog {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) -> KinematicsDiagnostic {
         let acceleration = bodies
             .iter()
             .map(|body| (body.id(), body.accel))
             .collect::<HashMap<_, _>>();
+        
+        let mut potential_energy = 0.0;
+        let mut kinetic_energy = 0.0;
 
         for body in bodies.iter_mut() {
             if body.fixed {
@@ -26,7 +29,7 @@ impl Kinematics for Leapfrog {
             body.set_pos((rx1, ry1));
         }
 
-        let acceleration_updated = update_acceleration(bodies);
+        let acceleration_updated = update_acceleration(bodies, &mut potential_energy);
 
         for body in bodies.iter_mut() {
             if body.fixed {
@@ -41,6 +44,12 @@ impl Kinematics for Leapfrog {
             let vy1 = vy + (1. / 2.) * (ay + ay1) * dt;
 
             body.velocity = (vx1, vy1);
+            kinetic_energy += body.kinetic_energy();
+        }
+        
+        KinematicsDiagnostic {
+            kinetic_energy,
+            potential_energy
         }
     }
 
@@ -52,9 +61,12 @@ impl Kinematics for Leapfrog {
 pub struct LeapfrogKDK;
 
 impl Kinematics for LeapfrogKDK {
-    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) {
+    fn step(&self, bodies: &mut OrbitalBodies, dt: f64) -> KinematicsDiagnostic {
         // kick-drift-kick format
         let acceleration = bodies.iter().map(|body| body.accel).collect::<Vec<_>>();
+
+        let mut potential_energy = 0.0;
+        let mut kinetic_energy = 0.0;
 
         let mut velocities_half = Vec::with_capacity(bodies.tier0.len() + bodies.tier1.len());
 
@@ -78,7 +90,7 @@ impl Kinematics for LeapfrogKDK {
             velocities_half.push((vx_i_half, vy_i_half));
         }
 
-        let acceleration_updated = update_acceleration(bodies);
+        let acceleration_updated = update_acceleration(bodies, &mut potential_energy);
 
         for (i, body) in bodies.iter_mut().enumerate() {
             let (ax_1, ay_1) = acceleration_updated[&body.id()];
@@ -88,6 +100,12 @@ impl Kinematics for LeapfrogKDK {
             let vy_i_1 = vy_i_half + (1. / 2.) * ay_1 * dt;
 
             body.velocity = (vx_i_1, vy_i_1);
+            kinetic_energy += body.kinetic_energy();
+        }
+
+        KinematicsDiagnostic {
+            kinetic_energy,
+            potential_energy
         }
     }
 

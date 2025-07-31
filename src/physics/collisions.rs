@@ -154,10 +154,10 @@ fn bin_bodies(orbital_bodies: &OrbitalBodies, params: BinBodiesParam) -> Vec<Has
 
     #[cfg(debug_assertions)]
     {
-        let min = bins.iter().map(HashSet::len).min().unwrap();
-        let max = bins.iter().map(HashSet::len).max().unwrap();
+        let min = bins.iter().map(HashSet::len).min().unwrap_or(0);
+        let max = bins.iter().map(HashSet::len).max().unwrap_or(0);
         let total = bins.iter().map(HashSet::len).sum::<usize>();
-        let avg = total / bins.len();
+        let avg = if bins.len() == 0 { 0 } else { total / bins.len() };
 
         println!("Bin stats: max={max} min={min} avg={avg}");
     }
@@ -231,6 +231,7 @@ pub fn handle_collisions(orbital_bodies: &mut OrbitalBodies) {
     let end = Instant::now();
     let delta = end - start;
 
+    #[cfg(debug_assertions)]
     println!("Collision time: {0}ms", delta.as_millis());
 
     for collision in collisions {
