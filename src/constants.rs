@@ -1,0 +1,21 @@
+pub const SPACE_SIZE: usize = 1500;
+pub const EARTH_MASS: f64 = 5.972 * 1E24;
+pub const MOON_MASS: f64 = 7.32 * 1E22;
+pub const SUN_MASS: f64 = 1.989 * 1E30;
+pub const MARS_MASS: f64 = 6.39 * 1E23;
+pub const HALEYS_COMET_MASS: f64 = 2.2 * 1E14;
+pub const MARS_VELOCITY: f64 = 24.077 * 1000.0; // m/s
+pub const EARTH_SUN_VELOCITY: f64 = 29_784.8;
+pub const MOON_EARTH_VELOCITY: f64 = 1023.;
+pub const HALEYS_COMET_VELOCITY: f64 = 54.6 * 1000.;
+pub const SUN_MARS_DISTANCE: f64 = 243230000000.;
+pub const SUN_EARTH_DISTANCE: f64 = 149597870700.;
+pub const EARTH_MOON_DISTANCE: f64 = 384400000.;
+pub const SUN_HALEY_DISTANCE: f64 = 87_831_000. * 1000.;
+pub const SUN_RADIUS: f64 = 6.957e+8;
+pub const EARTH_RADIUS: f64 = 6.378e+6;
+pub const MARS_RADIUS: f64 = 3389500.;
+pub const MOON_RADIUS: f64 = 1737400.;
+pub const HALEYS_RADIUS: f64 = 5500.;
+
+pub const AU: f64 = SUN_EARTH_DISTANCE;

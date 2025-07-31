@@ -1,4 +1,3 @@
-use crate::AU;
 use crate::body::{Body, BodyId, OrbitalBodies};
 use crate::physics::distance;
 use kdtree::distance::squared_euclidean;
@@ -8,6 +7,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Instant;
+use crate::constants::AU;
 
 const MAX_DISTANCE_DEFAULT: f64 = AU * 10.;
 const BIN_WIDTH_DEFAULT: f64 = AU / 2.;
