@@ -2,7 +2,6 @@ mod body;
 mod camera;
 mod physics;
 
-use std::panic::panic_any;
 use crate::body::{Body, BodyId, OrbitalBodies, bodies_to_map, create_asteroid_belt};
 use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
 use crate::physics::Kinematics;
@@ -10,6 +9,7 @@ use crate::physics::collisions::handle_collisions;
 use crate::physics::euler::Euler;
 use crate::physics::leapfrog::{Leapfrog, LeapfrogKDK};
 use raylib::prelude::*;
+use std::panic::panic_any;
 
 const SPACE_SIZE: usize = 1500;
 
@@ -57,25 +57,24 @@ fn main() {
         Color::YELLOW,
         (0.0, 0.0),
         (0.0, 0.0),
-        true,
     );
+    let sun_id = sun.id();
 
-    let belt = bodies_to_map(create_asteroid_belt(&sun, 0, AU));
+    let belt = bodies_to_map(create_asteroid_belt(&sun, 10_000, AU));
 
     let mut simulated = OrbitalBodies {
         tier0: bodies_to_map(vec![
             sun,
             // Mars
-            // Body::new(
-            //     MARS_MASS,
-            //     (0., 0. + SUN_MARS_DISTANCE),
-            //     MARS_RADIUS,
-            //     8.,
-            //     Color::RED,
-            //     (MARS_VELOCITY, 0.),
-            //     (0.0, 0.0),
-            //     false,
-            // ),
+            Body::new(
+                MARS_MASS,
+                (0., 0. + SUN_MARS_DISTANCE),
+                MARS_RADIUS,
+                8.,
+                Color::RED,
+                (MARS_VELOCITY, 0.),
+                (0.0, 0.0),
+            ),
             // Earth
             Body::new(
                 EARTH_MASS,
@@ -85,30 +84,27 @@ fn main() {
                 Color::BLUE,
                 (EARTH_SUN_VELOCITY, 0.0),
                 (0.0, 0.0),
-                false,
             ),
             // Moon
-            // Body::new(
-            //     MOON_MASS,
-            //     (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
-            //     MOON_RADIUS,
-            //     3.0,
-            //     Color::GRAY,
-            //     (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
-            //     (0., 0.),
-            //     false,
-            // ),
+            Body::new(
+                MOON_MASS,
+                (0., 0. + SUN_EARTH_DISTANCE + EARTH_MOON_DISTANCE),
+                MOON_RADIUS,
+                3.0,
+                Color::GRAY,
+                (EARTH_SUN_VELOCITY + MOON_EARTH_VELOCITY, 0.),
+                (0., 0.),
+            ),
             // Haley's comet
-            // Body::new(
-            //     HALEYS_COMET_MASS,
-            //     (0. + SUN_HALEY_DISTANCE, 0.),
-            //     HALEYS_RADIUS,
-            //     3.0,
-            //     Color::ORANGERED,
-            //     (0., HALEYS_COMET_VELOCITY),
-            //     (0.0, 0.0),
-            //     false,
-            // ),
+            Body::new(
+                HALEYS_COMET_MASS,
+                (0. + SUN_HALEY_DISTANCE, 0.),
+                HALEYS_RADIUS,
+                3.0,
+                Color::ORANGERED,
+                (0., HALEYS_COMET_VELOCITY),
+                (0.0, 0.0),
+            ),
         ]),
         tier1: belt,
     };
@@ -121,6 +117,7 @@ fn main() {
     let kinematics: [Box<dyn Kinematics>; 3] =
         [Box::new(Leapfrog), Box::new(LeapfrogKDK), Box::new(Euler)];
 
+    simulated.init_sun(sun_id);
     let mut kin = &kinematics[kinematics_index];
 
     macro_rules! get_universe_center {
@@ -133,7 +130,7 @@ fn main() {
     }
 
     let mut last_kinematic = kin.step(&mut simulated, 0.01);
-    
+
     println!("Total energy {0}", last_kinematic.total());
     // panic!("no more");
 
@@ -194,10 +191,10 @@ fn main() {
         // Simulate
         // dt in secs
         let step_kinematics = kin.step(&mut simulated, 1800. * 24.);
-        #[cfg(debug_assertions)] {
-            let delta_energy = step_kinematics - last_kinematic;
-            println!("Total energy {0}", step_kinematics.total());
-            println!("Energy delta: ${delta_energy:.3}");
+        #[cfg(debug_assertions)]
+        {
+            let delta_energy_rel = (step_kinematics - last_kinematic) / last_kinematic.total();
+            println!("Energy delta: ${delta_energy_rel:.3}");
             last_kinematic = step_kinematics;
         }
 

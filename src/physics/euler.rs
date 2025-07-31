@@ -14,10 +14,6 @@ impl Kinematics for Euler {
         update_acceleration(bodies, &mut potential_energy);
 
         for body in bodies.iter_mut() {
-            if body.fixed {
-                continue;
-            }
-
             let (rx, ry) = body.pos();
 
             body.velocity.0 += body.accel.0 * dt;

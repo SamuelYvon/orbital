@@ -1,5 +1,5 @@
 use crate::body::OrbitalBodies;
-use crate::physics::{Kinematics, update_acceleration, KinematicsDiagnostic};
+use crate::physics::{Kinematics, KinematicsDiagnostic, update_acceleration};
 use std::collections::HashMap;
 
 pub struct Leapfrog;
@@ -10,15 +10,11 @@ impl Kinematics for Leapfrog {
             .iter()
             .map(|body| (body.id(), body.accel))
             .collect::<HashMap<_, _>>();
-        
+
         let mut potential_energy = 0.0;
         let mut kinetic_energy = 0.0;
 
         for body in bodies.iter_mut() {
-            if body.fixed {
-                continue;
-            }
-
             let (ax, ay) = acceleration.get(&body.id()).unwrap();
             let (rx, ry) = body.pos();
             let (vx, vy) = body.velocity;
@@ -32,10 +28,6 @@ impl Kinematics for Leapfrog {
         let acceleration_updated = update_acceleration(bodies, &mut potential_energy);
 
         for body in bodies.iter_mut() {
-            if body.fixed {
-                continue;
-            }
-
             let (ax, ay) = acceleration.get(&body.id()).unwrap();
             let (ax1, ay1) = acceleration_updated.get(&body.id()).unwrap();
             let (vx, vy) = body.velocity;
@@ -46,10 +38,10 @@ impl Kinematics for Leapfrog {
             body.velocity = (vx1, vy1);
             kinetic_energy += body.kinetic_energy();
         }
-        
+
         KinematicsDiagnostic {
             kinetic_energy,
-            potential_energy
+            potential_energy,
         }
     }
 
@@ -71,11 +63,6 @@ impl Kinematics for LeapfrogKDK {
         let mut velocities_half = Vec::with_capacity(bodies.tier0.len() + bodies.tier1.len());
 
         for (i, body) in bodies.iter_mut().enumerate() {
-            if body.fixed {
-                velocities_half.push((0., 0.));
-                continue;
-            }
-
             let (ax, ay) = acceleration[i];
             let (vx, vy) = body.velocity;
             let (rx, ry) = body.pos();
@@ -105,7 +92,7 @@ impl Kinematics for LeapfrogKDK {
 
         KinematicsDiagnostic {
             kinetic_energy,
-            potential_energy
+            potential_energy,
         }
     }
 

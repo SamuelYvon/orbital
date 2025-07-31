@@ -59,6 +59,20 @@ impl OrbitalBodies {
     pub fn len(&self) -> usize {
         self.tier0.len() + self.tier1.len()
     }
+
+    pub fn init_sun(&mut self, body_id: BodyId) {
+        let mut cvx = 0.;
+        let mut cvy = 0.;
+
+        for body in self.iter().filter(|body| body.id != body_id) {
+            let (vx, vy) = body.velocity;
+            cvx += vx * body.mass;
+            cvy += vy * body.mass;
+        }
+
+        let sun = self.get_mut_by_id(body_id).unwrap();
+        sun.velocity = (-1.0 / sun.mass * cvx, -1.0 / sun.mass * cvy);
+    }
 }
 
 impl PartialEq for Body {
@@ -95,8 +109,6 @@ pub struct Body {
     pub velocity: (f64, f64),
     /// Acceleration in m/s^2
     pub accel: (f64, f64),
-    /// If the body is fixed (won't be updated)
-    pub fixed: bool,
     /// Drawing parameters
     pub trail_parameter: TrailParameter,
     /// The list of position of this body
@@ -112,7 +124,6 @@ impl Body {
         color: Color,
         velocity: (f64, f64),
         accel: (f64, f64),
-        fixed: bool,
     ) -> Self {
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
@@ -123,7 +134,6 @@ impl Body {
             color,
             velocity,
             accel,
-            fixed,
             trail_parameter: TrailParameter::Trail,
             pos_list: AllocRingBuffer::new(MAXIMUM_POSITION_HISTORY),
         }
@@ -149,6 +159,16 @@ impl Body {
     pub fn kinetic_energy(&self) -> f64 {
         let (vx, vy) = self.velocity;
         0.5 * self.mass * (vx.powf(2.) + vy.powf(2.))
+    }
+
+    pub fn actual_velocity(&self) -> f64 {
+        let (vx, vy) = self.velocity;
+        (vx.powf(2.) + vy.powf(2.)).sqrt()
+    }
+
+    pub fn actual_acceleration(&self) -> f64 {
+        let (ax, ay) = self.accel;
+        (ax.powf(2.) + ay.powf(2.)).sqrt()
     }
 }
 
@@ -185,7 +205,6 @@ pub fn create_asteroid_belt(
             Color::WHITESMOKE,
             (0., 0.),
             (0., 0.),
-            false,
         );
         asteroid.trail_parameter = TrailParameter::NoTrail;
 

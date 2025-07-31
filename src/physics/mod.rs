@@ -100,18 +100,16 @@ pub fn update_acceleration(
         let mut x_acc = 0.0;
         let mut y_acc = 0.0;
 
-        if !pullee.fixed {
-            for pulling_id in bodies.tier0.keys().cloned() {
-                if *pullee_id == pulling_id {
-                    continue;
-                }
-
-                let pulling = bodies.tier0.get(&pulling_id).unwrap();
-
-                let (x, y) = pairwise_acceleration(pullee, pulling);
-                x_acc += x;
-                y_acc += y;
+        for pulling_id in bodies.tier0.keys().cloned() {
+            if *pullee_id == pulling_id {
+                continue;
             }
+
+            let pulling = bodies.tier0.get(&pulling_id).unwrap();
+
+            let (x, y) = pairwise_acceleration(pullee, pulling);
+            x_acc += x;
+            y_acc += y;
         }
 
         // Re-borrow for mutability
@@ -125,12 +123,10 @@ pub fn update_acceleration(
         let mut x_acc = 0.0;
         let mut y_acc = 0.0;
 
-        if !pullee.fixed {
-            for (_, pulling) in bodies.tier0.iter() {
-                let (x, y) = pairwise_acceleration(pullee, pulling);
-                x_acc += x;
-                y_acc += y;
-            }
+        for (_, pulling) in bodies.tier0.iter() {
+            let (x, y) = pairwise_acceleration(pullee, pulling);
+            x_acc += x;
+            y_acc += y;
         }
 
         pullee.accel = (x_acc, y_acc);
@@ -144,10 +140,6 @@ pub fn update_acceleration(
             let bi = bodies.get_by_id(body_ids[i]).unwrap();
             let bj = bodies.get_by_id(body_ids[j]).unwrap();
 
-            if bi.fixed || bj.fixed {
-                continue;
-            }
-
             let (_, d) = distance(bi, bj);
             let g = -G * bi.mass * bj.mass;
             potential_energy_acc += g / d;
@@ -158,10 +150,6 @@ pub fn update_acceleration(
     for i in 0..n {
         for bj in bodies.tier1.values() {
             let bi = bodies.get_by_id(body_ids[i]).unwrap();
-
-            if bi.fixed || bj.fixed {
-                continue;
-            }
 
             let (_, d) = distance(bi, bj);
             let g = -G * bi.mass * bj.mass;

@@ -157,7 +157,11 @@ fn bin_bodies(orbital_bodies: &OrbitalBodies, params: BinBodiesParam) -> Vec<Has
         let min = bins.iter().map(HashSet::len).min().unwrap_or(0);
         let max = bins.iter().map(HashSet::len).max().unwrap_or(0);
         let total = bins.iter().map(HashSet::len).sum::<usize>();
-        let avg = if bins.len() == 0 { 0 } else { total / bins.len() };
+        let avg = if bins.len() == 0 {
+            0
+        } else {
+            total / bins.len()
+        };
 
         println!("Bin stats: max={max} min={min} avg={avg}");
     }
@@ -270,7 +274,6 @@ mod tests {
                 Color::WHITE,
                 (0., 0.),
                 (0., 0.),
-                true,
             )
         }
 
