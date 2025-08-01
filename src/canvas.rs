@@ -4,51 +4,60 @@ use crate::constants::SPACE_SIZE;
 use crate::physics::Kinematics;
 use raylib::color::Color;
 use raylib::drawing::{RaylibDraw, RaylibDrawHandle};
+use std::time::Duration;
+
+pub struct HudParams {
+    pub compute_time: Duration,
+    pub energy_delta: f64,
+}
 
 pub fn draw_hud(
     dh: &mut RaylibDrawHandle,
     simulation_state: &SimulationState,
     bodies: &OrbitalBodies,
     kin: &Box<dyn Kinematics>,
+    params: HudParams,
 ) {
-    let mut total_text_width = 0;
-    dh.draw_text(kin.name(), 14, SPACE_SIZE as i32 - 14 * 2, 14, Color::WHITE);
-    total_text_width += dh.measure_text(kin.name(), 14);
+    let mut all_text = vec![kin.name()];
 
-    let bodies_text = &format!("{0} bodies", bodies.len());
-    dh.draw_text(
-        bodies_text,
-        total_text_width + 2 * 14,
-        SPACE_SIZE as i32 - 14 * 2,
-        14,
-        Color::WHITE,
-    );
-    total_text_width += dh.measure_text(bodies_text, 14);
+    let n_bodies_text = format!("{0} bodies", bodies.len());
+    all_text.push(&n_bodies_text);
 
-    let collisions_text = match simulation_state.compute_collisions {
+    all_text.push(match simulation_state.compute_collisions {
         true => "Collisions on",
         false => "Collisions off",
-    };
-    dh.draw_text(
-        collisions_text,
-        total_text_width + 4 * 14,
-        SPACE_SIZE as i32 - 14 * 2,
-        14,
-        Color::WHITE,
-    );
-    total_text_width += dh.measure_text(collisions_text, 14);
+    });
 
-    let paused_text = match simulation_state.paused {
+    all_text.push(match simulation_state.paused {
         true => "Paused",
         false => "",
-    };
+    });
+
+    let speedup_text = format!("Speedup: {0:.1}", simulation_state.speedup);
+    all_text.push(&speedup_text);
+
+    all_text.push(if simulation_state.dt_factor < 0. {
+        "Reversed"
+    } else {
+        ""
+    });
+
+    let HudParams {
+        compute_time,
+        energy_delta,
+    } = params;
+
+    let compute_text = format!("{0}ms", compute_time.as_millis());
+    all_text.push(&compute_text);
+
+    let energy_delta_text = format!("E: {0:.2} (%)", energy_delta * 100.);
+    all_text.push(&energy_delta_text);
 
     dh.draw_text(
-        paused_text,
-        total_text_width + 6 * 14,
+        &all_text.join("  "),
+        14,
         SPACE_SIZE as i32 - 14 * 2,
         14,
         Color::WHITE,
     );
-    total_text_width += dh.measure_text(paused_text, 14);
 }

@@ -2,12 +2,14 @@ mod body;
 mod camera;
 mod canvas;
 mod constants;
+mod input;
 mod physics;
 
 use crate::body::{Body, BodyId, OrbitalBodies, bodies_to_map, create_asteroid_belt};
-use crate::camera::{click_in_body, draw_universe_relative, screen_coords_to_universe};
-use crate::canvas::draw_hud;
+use crate::camera::draw_universe_relative;
+use crate::canvas::{HudParams, draw_hud};
 use crate::constants::{SPACE_SIZE, SUN_EARTH_DISTANCE, SUN_MASS};
+use crate::input::handle_input;
 use crate::physics::Kinematics;
 use crate::physics::collisions::handle_collisions;
 use crate::physics::euler::Euler;
@@ -18,6 +20,7 @@ use constants::{
     MOON_EARTH_VELOCITY, MOON_MASS, MOON_RADIUS, SUN_HALEY_DISTANCE, SUN_MARS_DISTANCE, SUN_RADIUS,
 };
 use raylib::prelude::*;
+use std::time::Instant;
 
 enum CameraPosition {
     UniverseAbsolute((f64, f64)),
@@ -31,6 +34,7 @@ pub struct SimulationState {
     camera_position: CameraPosition,
     dt_factor: f64,
     kinematics_index: usize,
+    speedup: f64,
 }
 
 impl Default for SimulationState {
@@ -42,6 +46,7 @@ impl Default for SimulationState {
             camera_position: CameraPosition::BodyRelative(0),
             dt_factor: 1.0,
             kinematics_index: 0,
+            speedup: 1.,
         }
     }
 }
@@ -134,85 +139,43 @@ fn main() {
     let e0 = kin.step(&mut bodies, 0.01);
 
     while !rl.window_should_close() {
-        // Handle mouse zoom
-        let mouse_wheel = rl.get_mouse_wheel_move() as f64;
-
-        if mouse_wheel > 0. {
-            simulation_state.scale *= mouse_wheel * 1.1;
-        } else if mouse_wheel < 0. {
-            simulation_state.scale /= mouse_wheel.abs() * 1.1;
+        if handle_input(
+            &mut rl,
+            &mut simulation_state,
+            &mut kin,
+            &bodies,
+            &kinematics,
+        ) {
+            break;
         }
-
-        // Center to the selection position
-        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
-            let screen_position = (rl.get_mouse_x(), rl.get_mouse_y());
-            let universe_center = simulation_state.get_universe_center(&bodies);
-            let screen_center = (SPACE_SIZE / 2) as i32;
-
-            let mut set = false;
-            for (i, body) in bodies.tier0.iter() {
-                if click_in_body(
-                    screen_position,
-                    universe_center,
-                    screen_center,
-                    simulation_state.scale,
-                    body,
-                ) {
-                    simulation_state.camera_position = CameraPosition::BodyRelative(*i);
-                    set = true;
-                    break;
-                }
-            }
-
-            if !set {
-                let universe_center = screen_coords_to_universe(
-                    screen_position,
-                    simulation_state.scale,
-                    universe_center,
-                    screen_center,
-                );
-
-                simulation_state.camera_position =
-                    CameraPosition::UniverseAbsolute(universe_center);
-            }
-        }
-
-        // Swap kinematics based on keybind
-        match rl.get_key_pressed() {
-            Some(KeyboardKey::KEY_K) => {
-                simulation_state.kinematics_index =
-                    (simulation_state.kinematics_index + 1) % kinematics.len();
-                kin = &kinematics[simulation_state.kinematics_index];
-            }
-            Some(KeyboardKey::KEY_C) => {
-                simulation_state.compute_collisions = !simulation_state.compute_collisions;
-            }
-            Some(KeyboardKey::KEY_Q) => {
-                break;
-            }
-            Some(KeyboardKey::KEY_P) => {
-                simulation_state.paused = !simulation_state.paused;
-            }
-            Some(KeyboardKey::KEY_R) => {
-                simulation_state.dt_factor = -1. * simulation_state.dt_factor;
-            }
-            _ => (),
-        };
 
         // Simulate
-        // dt in secs
-        if !simulation_state.paused {
-            let step_kinematics = kin.step(&mut bodies, simulation_state.dt_factor * 1800. * 24.);
+        let before_step = Instant::now();
+
+        let energy_delta = if !simulation_state.paused {
+            let step_kinematics = kin.step(
+                &mut bodies,
+                simulation_state.dt_factor * simulation_state.speedup * 1800. * 24.,
+            );
+            let delta_energy_rel = (step_kinematics - e0) / e0.total();
             #[cfg(debug_assertions)]
             {
-                let delta_energy_rel = (step_kinematics - e0) / e0.total();
                 println!("Energy delta: ${delta_energy_rel:.3}");
             }
 
             if simulation_state.compute_collisions {
                 handle_collisions(&mut bodies);
             }
-        }
+            delta_energy_rel
+        } else {
+            0.
+        };
+
+        let after_step = Instant::now();
+        let hud_text = HudParams {
+            compute_time: after_step - before_step,
+            energy_delta,
+        };
 
         // Draw
         let mut draw_handle = rl.begin_drawing(&thread);
@@ -225,6 +188,6 @@ fn main() {
             simulation_state.scale,
         );
 
-        draw_hud(&mut draw_handle, &simulation_state, &bodies, &kin);
+        draw_hud(&mut draw_handle, &simulation_state, &bodies, &kin, hud_text);
     }
 }

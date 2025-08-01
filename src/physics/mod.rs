@@ -59,7 +59,7 @@ fn pairwise_acceleration(pullee: &Body, pulling: &Body) -> (f64, f64) {
     let pos_i = bi.pos();
     let pos_j = bj.pos();
 
-    let (d2, d) = distance(bi, bj);
+    let (d2, _) = distance(bi, bj);
 
     let mi = bi.mass;
     let mj = bj.mass;
@@ -164,6 +164,7 @@ pub fn update_acceleration(
 
 /// Given an angle in radians, a radius (a distance in meters), computes the position of the second
 /// body relative to the one at [pos], assuming it is on a circle around the first body.
+#[allow(unused)]
 pub fn orient(theta: f64, radius: f64, pos: (f64, f64)) -> (f64, f64) {
     let dx = theta.cos() * radius;
     let dy = theta.sin() * radius;

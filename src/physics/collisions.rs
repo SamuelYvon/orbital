@@ -1,4 +1,5 @@
 use crate::body::{Body, BodyId, OrbitalBodies};
+use crate::constants::AU;
 use crate::physics::distance;
 use kdtree::distance::squared_euclidean;
 use rayon::prelude::*;
@@ -6,8 +7,6 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::time::Instant;
-use crate::constants::AU;
 
 const MAX_DISTANCE_DEFAULT: f64 = AU * 10.;
 const BIN_WIDTH_DEFAULT: f64 = AU / 2.;
@@ -169,6 +168,7 @@ fn bin_bodies(orbital_bodies: &OrbitalBodies, params: BinBodiesParam) -> Vec<Has
     bins
 }
 
+#[allow(unused)]
 fn compute_kdtree_collisions(orbital_bodies: &OrbitalBodies) -> Vec<CollisionResult> {
     let collisions = Arc::new(RwLock::new(vec![]));
     let kd = Arc::new(RwLock::new(kdtree::KdTree::new(2)));
@@ -230,13 +230,19 @@ fn compute_collisions_spatial_hash(orbital_bodies: &OrbitalBodies) -> Vec<Collis
 
 /// Handle the collisions for the orbital system
 pub fn handle_collisions(orbital_bodies: &mut OrbitalBodies) {
-    let start = Instant::now();
-    let collisions = compute_collisions_spatial_hash(orbital_bodies);
-    let end = Instant::now();
-    let delta = end - start;
-
     #[cfg(debug_assertions)]
-    println!("Collision time: {0}ms", delta.as_millis());
+    use std::time::Instant;
+    #[cfg(debug_assertions)]
+    let start = Instant::now();
+    
+    let collisions = compute_collisions_spatial_hash(orbital_bodies);
+    
+    #[cfg(debug_assertions)]
+    {
+        let end = Instant::now();
+        let delta = end - start;
+        println!("Collision time: {0}ms", delta.as_millis());
+    }
 
     for collision in collisions {
         match collision {

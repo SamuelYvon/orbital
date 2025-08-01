@@ -161,11 +161,13 @@ impl Body {
         0.5 * self.mass * (vx.powf(2.) + vy.powf(2.))
     }
 
+    #[allow(unused)]
     pub fn actual_velocity(&self) -> f64 {
         let (vx, vy) = self.velocity;
         (vx.powf(2.) + vy.powf(2.)).sqrt()
     }
 
+    #[allow(unused)]
     pub fn actual_acceleration(&self) -> f64 {
         let (ax, ay) = self.accel;
         (ax.powf(2.) + ay.powf(2.)).sqrt()
