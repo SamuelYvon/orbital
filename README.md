@@ -9,6 +9,7 @@
 - Q: quit
 - R: reverse
 - +/-: time speedup
+- P: pause
 - Click: follow / pan to
 - Scroll-wheel: zoom
 - K: change integrator
