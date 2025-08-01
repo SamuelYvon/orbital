@@ -4,6 +4,15 @@
 
 ![Visualization](./imgs/solar.png "Screenshot")
 
+### Keybinds:
+
+- Q: quit
+- R: reverse
+- +/-: time speedup
+- Click: follow / pan to
+- Scroll-wheel: zoom
+- K: change integrator
+
 ## Features
 
 - Visualization with:
